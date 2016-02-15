@@ -116,4 +116,51 @@ class EngineSpec extends FlatSpec with Matchers {
     newGame.discard should be (game.discard)
     newGame.visibleDiscard should contain only (burntCard)
   }
+
+  it should "no longer have its top card when a player draws" in {
+    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    val game = Game(players)
+
+    def shuffleAndDraw(r: Random) = for {
+      startingDeck <- Game.shuffle(r)
+      currentPlayer <- Game.currentPlayer
+      newPlayer <- Game.drawCard(currentPlayer)
+    } yield startingDeck
+
+    val (newGame, startingDeck) = shuffleAndDraw(new Random(1342))(game)
+    newGame.deck should be (startingDeck.tail)
+  }
+
+  behavior of "A player"
+
+  it should "gain the top card of the deck when they draw" in {
+    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    val game = Game(players)
+
+    def shuffleAndDraw(r: Random) = for {
+      startingDeck <- Game.shuffle(r)
+      currentPlayer <- Game.currentPlayer
+      newPlayer <- Game.drawCard(currentPlayer)
+    } yield (startingDeck, newPlayer)
+
+    val (newGame, (startingDeck, newPlayer)) = shuffleAndDraw(new Random(1343))(game)
+    newGame.players(0) should be (newPlayer)
+    newPlayer.hand should contain only (startingDeck.head)
+  }
+
+  it should "not gain cards when another player draws" in {
+    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    val game = Game(players)
+
+    def shuffleAndDraw(r: Random) = for {
+      startingDeck <- Game.shuffle(r)
+      currentPlayer <- Game.currentPlayer
+      newPlayer <- Game.drawCard(currentPlayer)
+    } yield ()
+
+    val newGame = shuffleAndDraw(new Random(1344)).exec(game)
+    newGame.players.tail.foreach(p => {
+      p.hand shouldBe empty
+    })
+  }
 }

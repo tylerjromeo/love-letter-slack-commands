@@ -58,9 +58,20 @@ object Game {
     }
     burnCard.flatMap(addToVisibleDiscard)
   }
+
+  /**
+   * Remove the top card from the deck and add it to a player's hand. Then return that player object
+   */
+  def drawCard(p: Player): State[Game, Player] = {
+    burnCard.flatMap(card => updatePlayer(p.copy(hand = p.hand :+ card)))
+  }
+
+  def updatePlayer(p: Player) = State[Game, Player] {
+    g: Game => (g.copy(players = g.players.updated(g.players.indexWhere(_.name == p.name), p)), p)
+  }
 }
 
-case class Player(name: String,
+case class Player(name: String,//name must be unique among players in the game
   hand: Seq[Card] = Nil,
   isEliminated: Boolean = false,
   isProtected: Boolean = false,

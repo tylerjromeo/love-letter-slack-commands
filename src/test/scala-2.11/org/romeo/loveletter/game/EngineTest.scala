@@ -202,6 +202,6 @@ class EngineSpec extends FlatSpec with Matchers {
 
     val (newGame, (player, discard)) = shuffleDrawAndDiscard(new Random(1345))(game)
     newGame.discard should be (discard)
-    discard.top should be (player.hand.head)
+    discard.head should be (player.hand.head)
   }
 }

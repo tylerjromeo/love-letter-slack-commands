@@ -1,13 +1,13 @@
 package org.romeo.loveletter.game
 
 import scala.util.Random
-import scala.collection.immutable.Stack
+import scala.collection.immutable.List
 
 import scalaz.State
 
 case class Game(players: Seq[Player],
   deck: Seq[Card] = Deck.cards,
-  discard: Stack[Card] = Stack.empty,
+  discard: List[Card] = Nil,
   visibleDiscard: Seq[Card] = Nil) {
   require(players.length >= 2, "Need at least 2 players")
   require(players.length <= 4, "No more than 4 players")
@@ -80,7 +80,7 @@ object Game {
    * removes a card from the given players hand and puts it in the discard pile. Returns the discard pile
    * undefined behavior if the player doesn't have the given card
    */
-  def playerDiscard(p: Player, c: Card): State[Game, Stack[Card]] = {
+  def playerDiscard(p: Player, c: Card): State[Game, List[Card]] = {
     for {
       _ <- updatePlayer(p.copy(hand = p.hand.diff(Seq(c))))
       d <- discard(c)
@@ -90,9 +90,9 @@ object Game {
   /**
    * Adds a card to teh discard pile, then returns the discard pile
    */
-  def discard(c: Card) = State[Game, Stack[Card]] {
+  def discard(c: Card) = State[Game, List[Card]] {
     g: Game => {
-      val newDiscard = g.discard.push(c)
+      val newDiscard = c :: g.discard
       (g.copy(discard = newDiscard), newDiscard)
     }
   }

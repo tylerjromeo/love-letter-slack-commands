@@ -5,26 +5,32 @@ import org.romeo.loveletter.game._
 
 class EngineSpec extends FlatSpec with Matchers {
 
-  "A game" should "fail to start with the wrong number of players" in {
+  behavior of "A game"
+
+  it should "fail to start with too few players" in {
     val tooFewPlayers = Seq("Tyler")
-    val tooManyPlayers = Seq("Tyler", "Kevin", "Morgan", "Trevor", "Jeff")
     an [IllegalArgumentException] should be thrownBy Game(tooFewPlayers)
+  }
+  it should "fail to start with too many players" in {
+    val tooManyPlayers = Seq("Tyler", "Kevin", "Morgan", "Trevor", "Jeff")
     an [IllegalArgumentException] should be thrownBy Game(tooManyPlayers)
   }
 
-  "A game" should "Have the first player as the current player" in {
+  behavior of "The first player"
+
+  it should "be the current player" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
     val game = Game(players);
     Game.currentPlayer.eval(game).name should be (players.head)
   }
 
-  "A game's first player" should "change when a turn is ended" in {
+  it should "change when a turn is ended" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
     val game = Game(players);
     Game.endTurn.exec(game).players.head.name should be (players(1))
   }
 
-  "A game" should "be back to its initial state after a full round of turns" in {
+  it should "be back to its initial state after a full round of turns" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
     val game = Game(players);
     def FullRoundCycle() = for {
@@ -40,7 +46,9 @@ class EngineSpec extends FlatSpec with Matchers {
     newPlayers.map(_.name) should be (players)
   }
 
-  "The game deck" should "be put in random order when shuffled" in {
+  behavior of "The game deck"
+
+  it should "be put in random order when shuffled" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
     val game = Game(players)
     val r1 = new Random(1337)
@@ -53,7 +61,7 @@ class EngineSpec extends FlatSpec with Matchers {
     shuffledDeck should be (r2.shuffle(Deck.cards))
   }
 
-  "The game deck" should "lose its top card when burnCard is called" in {
+  it should "lose its top card when burnCard is called" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
     val game = Game(players)
 
@@ -64,7 +72,33 @@ class EngineSpec extends FlatSpec with Matchers {
 
     val (newGame, (newDeck, burntCard)) = shuffleAndBurn(new Random(1338))(game)
     newGame.deck should be (newDeck.tail)
+    newGame.discard should be (game.discard)
+    newGame.visibleDiscard should be (game.visibleDiscard)
+  }
+
+  it should "return the burned card when burncard is called" in {
+    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    val game = Game(players)
+
+    def shuffleAndBurn(r: Random) = for {
+      deck <- Game.shuffle(r)
+      burntCard <- Game.burnCard
+    } yield (deck, burntCard)
+
+    val (newGame, (newDeck, burntCard)) = shuffleAndBurn(new Random(1338))(game)
     Seq(burntCard) ++ newGame.deck should be (newDeck)
+  }
+
+  it should "not have any change in the discard piles after burning" in {
+    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    val game = Game(players)
+
+    def shuffleAndBurn(r: Random) = for {
+      deck <- Game.shuffle(r)
+      burntCard <- Game.burnCard
+    } yield (deck, burntCard)
+
+    val (newGame, (newDeck, burntCard)) = shuffleAndBurn(new Random(1338))(game)
     newGame.discard should be (game.discard)
     newGame.visibleDiscard should be (game.visibleDiscard)
   }

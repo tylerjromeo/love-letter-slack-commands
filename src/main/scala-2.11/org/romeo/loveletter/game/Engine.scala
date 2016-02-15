@@ -17,7 +17,3 @@ case class Player(name: String,
   isProtected: Boolean = false,
   score: Int = 0
 )
-
-trait Card {
-  def doAction(state: Game): Game
-}

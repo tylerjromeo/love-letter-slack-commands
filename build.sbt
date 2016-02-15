@@ -1,6 +1,6 @@
 import com.typesafe.sbt.packager.archetypes.JavaAppPackaging
 
-name := "lidl-json-store"
+name := "love-letter-slack-commands"
 
 version := "1.0"
 

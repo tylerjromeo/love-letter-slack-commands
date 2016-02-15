@@ -6,7 +6,8 @@ import scalaz.State
 
 case class Game(players: Seq[Player],
   deck: Seq[Card] = Deck.cards,
-  discard: Seq[Card] = Nil) {
+  discard: Seq[Card] = Nil,
+  visibleDiscard: Seq[Card] = Nil) {
   require(players.length >= 2, "Need at least 2 players")
   require(players.length <= 4, "No more than 4 players")
 }
@@ -32,12 +33,19 @@ object Game {
   /**
    * Puts the contents of the deck in random order, and returns the deck
    */
-   def shuffle(r: Random):State[Game, Seq[Card]] = State[Game, Seq[Card]] {
-     g: Game => {
-       val newDeck = r.shuffle(g.deck)
-       (g.copy(deck = newDeck), newDeck)
-     }
-   }
+  def shuffle(r: Random):State[Game, Seq[Card]] = State[Game, Seq[Card]] {
+    g: Game => {
+      val newDeck = r.shuffle(g.deck)
+      (g.copy(deck = newDeck), newDeck)
+    }
+  }
+
+  /**
+   * Removes the top card from the deck and returns it. The card will not be put in the discard pile
+   */
+  def burnCard = State[Game, Card] {
+    g: Game => (g.copy(deck = g.deck.tail), g.deck.head)
+  }
 
 
 }

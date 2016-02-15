@@ -52,4 +52,20 @@ class EngineSpec extends FlatSpec with Matchers {
     shuffledDeck should contain theSameElementsAs Deck.cards
     shuffledDeck should be (r2.shuffle(Deck.cards))
   }
+
+  "The game deck" should "lose its top card when burnCard is called" in {
+    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    val game = Game(players)
+
+    def shuffleAndBurn(r: Random) = for {
+      deck <- Game.shuffle(r)
+      burntCard <- Game.burnCard
+    } yield (deck, burntCard)
+
+    val (newGame, (newDeck, burntCard)) = shuffleAndBurn(new Random(1338))(game)
+    newGame.deck should be (newDeck.tail)
+    Seq(burntCard) ++ newGame.deck should be (newDeck)
+    newGame.discard should be (game.discard)
+    newGame.visibleDiscard should be (game.visibleDiscard)
+  }
 }

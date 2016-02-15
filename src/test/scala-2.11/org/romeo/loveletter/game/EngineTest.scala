@@ -199,4 +199,34 @@ class EngineSpec extends FlatSpec with Matchers {
     newGame.discard should be (discard)
     discard.head should be (player.get.hand.head)
   }
+
+  it should "remain the same if a player that doesn't exist tries to discard a card" in {
+    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    val game = Game(players)
+
+    def drawAndDiscardInvalidCard = for {
+      player <- Game.drawCard(players(0))
+      discard <- Game.playerDiscard("BADPLAYER", org.romeo.loveletter.game.Princess)
+    } yield (player, discard)
+
+    val (player, discard) = drawAndDiscardInvalidCard.eval(game)
+    player.get.hand.head should be (org.romeo.loveletter.game.Guard)
+    discard shouldBe empty
+
+  }
+
+  it should "remain the same if a player tries to discard a card they don't have" in {
+    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    val game = Game(players)
+
+    def drawAndDiscardInvalidCard = for {
+      player <- Game.drawCard(players(0))//should draw a guard
+      discard <- Game.playerDiscard(players(0), org.romeo.loveletter.game.Princess)
+    } yield (player, discard)
+
+    val (player, discard) = drawAndDiscardInvalidCard.eval(game)
+    player.get.hand.head should be (org.romeo.loveletter.game.Guard)
+    discard shouldBe empty
+
+  }
 }

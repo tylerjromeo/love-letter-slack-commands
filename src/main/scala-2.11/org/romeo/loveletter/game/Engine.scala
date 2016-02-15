@@ -88,18 +88,20 @@ object Game {
 
   /**
    * removes a card from the given players hand and puts it in the discard pile. Returns the discard pile
-   * undefined behavior if the player doesn't have the given card
+   * does not change the state and returns an empty list if an invalid player or card is selected
    */
   def playerDiscard(playerName: String, c: Card): State[Game, List[Card]] = {
-    for {
-      player <- getPlayer(playerName)
-      _ <- updatePlayer(player.map(p => p.copy(hand = p.hand.diff(Seq(c)))))
-      d <- discard(c)
-    } yield d
+    getPlayer(playerName).flatMap(_.flatMap({
+        p => if(p.hand.contains(c)) {
+          Some(updatePlayer(Some(p.copy(hand = p.hand.diff(Seq(c))))).flatMap(_ => discard(c)))
+        } else {
+          None
+        }
+      }).getOrElse(State[Game, List[Card]](g => (g, Nil))) )
   }
 
   /**
-   * Adds a card to teh discard pile, then returns the discard pile
+   * Adds a card to the discard pile, then returns the discard pile
    */
   def discard(c: Card) = State[Game, List[Card]] {
     g: Game => {

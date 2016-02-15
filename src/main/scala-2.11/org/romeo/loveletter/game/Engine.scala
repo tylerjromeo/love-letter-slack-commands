@@ -1,13 +1,15 @@
 package org.romeo.loveletter.game
 
-class Game(val playerNames: Seq[String]){
-  require(playerNames.length >= 2, "Need at least 2 players")
-  require(playerNames.length <= 4, "No more than 4 players")
-  var players = playerNames.map(Player(_))
+case class Game(val players: Seq[Player]) {
+  require(players.length >= 2, "Need at least 2 players")
+  require(players.length <= 4, "No more than 4 players")
+}
 
-  def currentPlayer = players.head
-  def endTurn(): Unit = {
-    players = players.tail ++ Seq(players.head)
+object Game {
+  def apply(playerNames: => Seq[String]) = new Game(playerNames.map(Player(_)))
+  def currentPlayer(g: Game): Player = g.players.head
+  def endTurn(g: Game): Game = {
+    Game(g.players.tail ++ Seq(g.players.head))
   }
 }
 

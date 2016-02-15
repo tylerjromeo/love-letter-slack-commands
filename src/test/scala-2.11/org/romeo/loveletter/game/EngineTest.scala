@@ -123,8 +123,7 @@ class EngineSpec extends FlatSpec with Matchers {
 
     def shuffleAndDraw(r: Random) = for {
       startingDeck <- Game.shuffle(r)
-      currentPlayer <- Game.currentPlayer
-      newPlayer <- Game.drawCard(currentPlayer)
+      _ <- Game.drawCard(players.head)
     } yield startingDeck
 
     val (newGame, startingDeck) = shuffleAndDraw(new Random(1342))(game)
@@ -139,13 +138,12 @@ class EngineSpec extends FlatSpec with Matchers {
 
     def shuffleAndDraw(r: Random) = for {
       startingDeck <- Game.shuffle(r)
-      currentPlayer <- Game.currentPlayer
-      newPlayer <- Game.drawCard(currentPlayer)
+      newPlayer <- Game.drawCard(players.head)
     } yield (startingDeck, newPlayer)
 
     val (newGame, (startingDeck, newPlayer)) = shuffleAndDraw(new Random(1343))(game)
-    newGame.players(0) should be (newPlayer)
-    newPlayer.hand should contain only (startingDeck.head)
+    newGame.players(0) should be (newPlayer.get)
+    newPlayer.get.hand should contain only (startingDeck.head)
   }
 
   it should "not gain cards when another player draws" in {
@@ -153,9 +151,8 @@ class EngineSpec extends FlatSpec with Matchers {
     val game = Game(players)
 
     def shuffleAndDraw(r: Random) = for {
-      startingDeck <- Game.shuffle(r)
-      currentPlayer <- Game.currentPlayer
-      newPlayer <- Game.drawCard(currentPlayer)
+      _ <- Game.shuffle(r)
+      _ <- Game.drawCard(players.head)
     } yield ()
 
     val newGame = shuffleAndDraw(new Random(1344)).exec(game)
@@ -170,14 +167,13 @@ class EngineSpec extends FlatSpec with Matchers {
 
     def shuffleDrawAndDiscard(r: Random) = for {
       _ <- Game.shuffle(r)
-      currentPlayer <- Game.currentPlayer
-      player <- Game.drawCard(currentPlayer)
-      _ <- Game.playerDiscard(player, player.hand.head)
+      player <- Game.drawCard(players.head)
+      _ <- Game.playerDiscard(players.head, player.get.hand.head)
     } yield player
 
     val (newGame, player) = shuffleDrawAndDiscard(new Random(1345))(game)
     newGame.players.head.hand shouldBe empty
-    player.hand should have size 1
+    player.get.hand should have size 1
   }
 
   behavior of "The discard pile"
@@ -195,13 +191,12 @@ class EngineSpec extends FlatSpec with Matchers {
 
     def shuffleDrawAndDiscard(r: Random) = for {
       _ <- Game.shuffle(r)
-      currentPlayer <- Game.currentPlayer
-      player <- Game.drawCard(currentPlayer)
-      discard <- Game.playerDiscard(player, player.hand.head)
+      player <- Game.drawCard(players.head)
+      discard <- Game.playerDiscard(players.head, player.get.hand.head)
     } yield (player, discard)
 
     val (newGame, (player, discard)) = shuffleDrawAndDiscard(new Random(1345))(game)
     newGame.discard should be (discard)
-    discard.head should be (player.hand.head)
+    discard.head should be (player.get.hand.head)
   }
 }

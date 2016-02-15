@@ -60,29 +60,40 @@ object Game {
     burnCard.flatMap(addToVisibleDiscard)
   }
 
-//TODO: refactor player functions to take in player name and pull player out of current state
   /**
-   * Remove the top card from the deck and add it to a player's hand. Then return that player object
+   * Gets the player with the given name (ignoring case) from the game state, or none if no player exists
    */
-  def drawCard(p: Player): State[Game, Player] = {
-    burnCard.flatMap(card => updatePlayer(p.copy(hand = p.hand :+ card)))
+  def getPlayer(playerName: String) = State[Game, Option[Player]] {
+    g: Game => (g, g.players.find(_.name.equalsIgnoreCase(playerName)))
   }
 
   /**
-   * replaces the player with the same name as the passed in player in the player list. Returns the new player
-   * undefined behavior if the player doesn't match one in the game
+   * Remove the top card from the deck and add it to a player's hand. Then return that player object
    */
-  def updatePlayer(p: Player) = State[Game, Player] {
-    g: Game => (g.copy(players = g.players.updated(g.players.indexWhere(_.name == p.name), p)), p)
+  def drawCard(playerName: String): State[Game, Option[Player]] = for {
+    c <- burnCard
+    player <- getPlayer(playerName)
+    player2 <- updatePlayer(player.map(p => p.copy(hand = p.hand :+ c)))
+  } yield player2
+
+  /**
+   * replaces the player with the same name as the passed in player in the player list. Returns the new player
+   * if None is passed in, jus return the same old game state and none
+   */
+  def updatePlayer(player: Option[Player]) = State[Game, Option[Player]] {
+    g: Game => player.map(
+      p => (g.copy(players = g.players.updated(g.players.indexWhere(_.name == p.name), p)), Some(p))
+    ).getOrElse((g, None:Option[Player]))
   }
 
   /**
    * removes a card from the given players hand and puts it in the discard pile. Returns the discard pile
    * undefined behavior if the player doesn't have the given card
    */
-  def playerDiscard(p: Player, c: Card): State[Game, List[Card]] = {
+  def playerDiscard(playerName: String, c: Card): State[Game, List[Card]] = {
     for {
-      _ <- updatePlayer(p.copy(hand = p.hand.diff(Seq(c))))
+      player <- getPlayer(playerName)
+      _ <- updatePlayer(player.map(p => p.copy(hand = p.hand.diff(Seq(c)))))
       d <- discard(c)
     } yield d
   }

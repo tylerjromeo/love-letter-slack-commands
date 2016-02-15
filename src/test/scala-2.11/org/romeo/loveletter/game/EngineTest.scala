@@ -1,6 +1,7 @@
 import scala.language.postfixOps
+import scala.util.Random
 import org.scalatest._
-import org.romeo.loveletter.game.Game
+import org.romeo.loveletter.game._
 
 class EngineSpec extends FlatSpec with Matchers {
 
@@ -19,13 +20,13 @@ class EngineSpec extends FlatSpec with Matchers {
 
   "A game's first player" should "change when a turn is ended" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
-    var game = Game(players);
+    val game = Game(players);
     Game.endTurn.exec(game).players.head.name should be (players(1))
   }
 
   "A game" should "be back to its initial state after a full round of turns" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
-    var game = Game(players);
+    val game = Game(players);
     def FullRoundCycle() = for {
       p1 <- Game.currentPlayer
       p2 <- Game.endTurn
@@ -37,5 +38,18 @@ class EngineSpec extends FlatSpec with Matchers {
     val (newGame, newPlayers) = FullRoundCycle()(game)
     newGame should be (game)
     newPlayers.map(_.name) should be (players)
+  }
+
+  "The game deck" should "be put in random order when shuffled" in {
+    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    val game = Game(players)
+    val r1 = new Random(1337)
+    val r2 = new Random(1337)
+
+    val (newGame, shuffledDeck) = Game.shuffle(r1)(game)
+    newGame.deck should be (shuffledDeck)
+    shuffledDeck should not be (Deck.cards)
+    shuffledDeck should contain theSameElementsAs Deck.cards
+    shuffledDeck should be (r2.shuffle(Deck.cards))
   }
 }

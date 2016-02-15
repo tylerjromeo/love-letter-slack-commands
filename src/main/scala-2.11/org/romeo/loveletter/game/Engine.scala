@@ -1,12 +1,13 @@
 package org.romeo.loveletter.game
 
 import scala.util.Random
+import scala.collection.immutable.Stack
 
 import scalaz.State
 
 case class Game(players: Seq[Player],
   deck: Seq[Card] = Deck.cards,
-  discard: Seq[Card] = Nil,
+  discard: Stack[Card] = Stack.empty,
   visibleDiscard: Seq[Card] = Nil) {
   require(players.length >= 2, "Need at least 2 players")
   require(players.length <= 4, "No more than 4 players")
@@ -59,6 +60,7 @@ object Game {
     burnCard.flatMap(addToVisibleDiscard)
   }
 
+//TODO: refactor player functions to take in player name and pull player out of current state
   /**
    * Remove the top card from the deck and add it to a player's hand. Then return that player object
    */
@@ -66,8 +68,33 @@ object Game {
     burnCard.flatMap(card => updatePlayer(p.copy(hand = p.hand :+ card)))
   }
 
+  /**
+   * replaces the player with the same name as the passed in player in the player list. Returns the new player
+   * undefined behavior if the player doesn't match one in the game
+   */
   def updatePlayer(p: Player) = State[Game, Player] {
     g: Game => (g.copy(players = g.players.updated(g.players.indexWhere(_.name == p.name), p)), p)
+  }
+
+  /**
+   * removes a card from the given players hand and puts it in the discard pile. Returns the discard pile
+   * undefined behavior if the player doesn't have the given card
+   */
+  def playerDiscard(p: Player, c: Card): State[Game, Stack[Card]] = {
+    for {
+      _ <- updatePlayer(p.copy(hand = p.hand.diff(Seq(c))))
+      d <- discard(c)
+    } yield d
+  }
+
+  /**
+   * Adds a card to teh discard pile, then returns the discard pile
+   */
+  def discard(c: Card) = State[Game, Stack[Card]] {
+    g: Game => {
+      val newDiscard = g.discard.push(c)
+      (g.copy(discard = newDiscard), newDiscard)
+    }
   }
 }
 

@@ -163,4 +163,45 @@ class EngineSpec extends FlatSpec with Matchers {
       p.hand shouldBe empty
     })
   }
+
+  it should "no longer have a card in their hand after discarding" in {
+    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    val game = Game(players)
+
+    def shuffleDrawAndDiscard(r: Random) = for {
+      _ <- Game.shuffle(r)
+      currentPlayer <- Game.currentPlayer
+      player <- Game.drawCard(currentPlayer)
+      _ <- Game.playerDiscard(player, player.hand.head)
+    } yield player
+
+    val (newGame, player) = shuffleDrawAndDiscard(new Random(1345))(game)
+    newGame.players.head.hand shouldBe empty
+    player.hand should have size 1
+  }
+
+  behavior of "The discard pile"
+
+  it should "be empty at the start of the game" in {
+    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    val game = Game(players)
+
+    game.discard shouldBe empty
+  }
+
+  it should "contain cards that players discard" in {
+    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    val game = Game(players)
+
+    def shuffleDrawAndDiscard(r: Random) = for {
+      _ <- Game.shuffle(r)
+      currentPlayer <- Game.currentPlayer
+      player <- Game.drawCard(currentPlayer)
+      discard <- Game.playerDiscard(player, player.hand.head)
+    } yield (player, discard)
+
+    val (newGame, (player, discard)) = shuffleDrawAndDiscard(new Random(1345))(game)
+    newGame.discard should be (discard)
+    discard.top should be (player.hand.head)
+  }
 }

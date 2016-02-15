@@ -47,7 +47,17 @@ object Game {
     g: Game => (g.copy(deck = g.deck.tail), g.deck.head)
   }
 
-
+  /**
+   * Remove the top card from the deck and add it to the visible discard pile, then return it
+   * Used in 2 player games when 3 cards are exposed at the beginning of each round
+   */
+  def burnCardVisible: State[Game, Card] = {
+    //ok to keep this local because no one else should need it
+    def addToVisibleDiscard(card: Card): State[Game, Card] = State[Game, Card] {
+      g: Game => (g.copy(visibleDiscard = g.visibleDiscard :+ card), card)
+    }
+    burnCard.flatMap(addToVisibleDiscard)
+  }
 }
 
 case class Player(name: String,

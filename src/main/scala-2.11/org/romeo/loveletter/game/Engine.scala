@@ -151,6 +151,18 @@ object Game {
       (g.copy(discard = newDiscard), newDiscard)
     }
   }
+
+  def findWinner = State[Game, Option[Player]] {
+    g: Game => {
+      val threshold = g.players.length match {
+        case 2 => 7
+        case 3 => 5
+        case 4 => 4
+        case _ => throw new AssertionError("Game can only have 2-4 players")
+      }
+      (g, g.players.find(_.score >= threshold))
+    }
+  }
 }
 
 case class Player(name: String,//name must be unique among players in the game

@@ -94,6 +94,67 @@ class EngineSpec extends FlatSpec with Matchers {
     game.visibleDiscard should have length (0)
   }
 
+  it should "report a winner if a player has 7 points in a 2 player game" in {
+    val players = Seq("Tyler", "Kevin")
+    val game = Game(players);
+
+    def giveSomePoints = for {
+      _ <- Game.awardPoint(players(1))
+      _ <- Game.awardPoint(players(1))
+      _ <- Game.awardPoint(players(1))
+      _ <- Game.awardPoint(players(1))
+      _ <- Game.awardPoint(players(1))
+      _ <- Game.awardPoint(players(1))
+      nonWinner <- Game.findWinner
+      _ <- Game.awardPoint(players(1))
+      winner <- Game.findWinner
+    } yield (nonWinner, winner)
+
+    val (nonWinner, winner) = giveSomePoints.eval(game)
+    nonWinner should be (empty)
+    winner.get.name should be (players(1))
+    winner.get.score should be (7)
+  }
+
+  it should "report a winner if a player has 5 points in a 3 player game" in {
+    val players = Seq("Tyler", "Kevin", "Morgan")
+    val game = Game(players);
+
+    def giveSomePoints = for {
+      _ <- Game.awardPoint(players(1))
+      _ <- Game.awardPoint(players(1))
+      _ <- Game.awardPoint(players(1))
+      _ <- Game.awardPoint(players(1))
+      nonWinner <- Game.findWinner
+      _ <- Game.awardPoint(players(1))
+      winner <- Game.findWinner
+    } yield (nonWinner, winner)
+
+    val (nonWinner, winner) = giveSomePoints.eval(game)
+    nonWinner should be (empty)
+    winner.get.name should be (players(1))
+    winner.get.score should be (5)
+  }
+
+  it should "report a winner if a player has 4 points in a 4 player game" in {
+    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    val game = Game(players);
+
+    def giveSomePoints = for {
+      _ <- Game.awardPoint(players(1))
+      _ <- Game.awardPoint(players(1))
+      _ <- Game.awardPoint(players(1))
+      nonWinner <- Game.findWinner
+      _ <- Game.awardPoint(players(1))
+      winner <- Game.findWinner
+    } yield (nonWinner, winner)
+
+    val (nonWinner, winner) = giveSomePoints.eval(game)
+    nonWinner should be (empty)
+    winner.get.name should be (players(1))
+    winner.get.score should be (4)
+  }
+
 //TODO
   it should "have all players not eliminated and not protected, even if they were in the previous match"
 

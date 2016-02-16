@@ -136,6 +136,12 @@ object Game {
       }).getOrElse(State[Game, List[Card]](g => (g, Nil))) )
   }
 
+  def awardPoint(playerName: String): State[Game, Option[Player]] = {
+    getPlayer(playerName).flatMap(player => {
+      updatePlayer(player.map(p => p.copy(score = p.score + 1)))
+    })
+  }
+
   /**
    * Adds a card to the discard pile, then returns the discard pile
    */

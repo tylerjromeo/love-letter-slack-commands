@@ -227,6 +227,38 @@ class EngineSpec extends FlatSpec with Matchers {
     player.get.hand should have size 1
   }
 
+  it should "start with 0 points" in {
+    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    val game = Game(players)
+
+    game.players.foreach(_.score should be (0))
+  }
+
+  it should "have 1 more point when a point is awarded" in {
+    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    val game = Game(players)
+
+    def giveSomePoints = for {
+      _ <- Game.awardPoint(players(0))
+      _ <- Game.awardPoint(players(1))
+      _ <- Game.awardPoint(players(2))
+      _ <- Game.awardPoint(players(2))
+      ty <- Game.getPlayer(players(0))
+      kev <- Game.getPlayer(players(1))
+      mo <- Game.getPlayer(players(2))
+      trev <- Game.getPlayer(players(3))
+    } yield (ty.get, kev.get, mo.get, trev.get)
+
+    val (newGame, (ty, kev, mo, trev)) = giveSomePoints(game)
+    newGame.players should contain theSameElementsAs Seq(ty, kev, mo, trev)
+    ty.score should be (1)
+    kev.score should be (1)
+    mo.score should be (2)
+    trev.score should be (0)
+  }
+
+  it should "not change the state if a point is given to a user not in the game"
+
   behavior of "The discard pile"
 
   it should "be empty at the start of the game" in {

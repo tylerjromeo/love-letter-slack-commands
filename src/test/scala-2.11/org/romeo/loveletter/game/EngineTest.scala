@@ -46,6 +46,57 @@ class EngineSpec extends FlatSpec with Matchers {
     newPlayers.map(_.name) should be (players)
   }
 
+  behavior of "A match"
+
+  it should "have 2 cards for the current player" in {
+    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    val game = Game.startMatch(new Random(9191)).exec(Game(players));
+
+    val currentPlayer = Game.currentPlayer.eval(game);
+    currentPlayer.hand should have length 2
+  }
+
+  it should "have 1 for player whose turn it isn't when starting a game" in {
+    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    val game = Game.startMatch(new Random(9192)).exec(Game(players));
+
+    val currentPlayer = Game.currentPlayer.eval(game);
+    (game.players.diff(Seq(currentPlayer))).foreach(_.hand should have length 1)
+  }
+
+  it should "have the same number of cards in the game as were in the deck (minus burn card)" in {
+    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    val game = Game.startMatch(new Random(9193)).exec(Game(players));
+
+    val cardsInPlay = game.players.foldLeft(0)((acc, p) => acc + p.hand.length) + game.deck.length + game.visibleDiscard.length + game.discard.length
+    cardsInPlay + 1 should be (org.romeo.loveletter.game.Deck.cards.length)
+  }
+
+  it should "have the same number of cards in the game as were in the deck (minus burn card) for a 2 player game" in {
+    val players = Seq("Tyler", "Kevin")
+    val game = Game.startMatch(new Random(9194)).exec(Game(players));
+
+    val cardsInPlay = game.players.foldLeft(0)((acc, p) => acc + p.hand.length) + game.deck.length + game.visibleDiscard.length + game.discard.length
+    cardsInPlay + 1 should be (org.romeo.loveletter.game.Deck.cards.length)
+  }
+
+  it should "have 3 visible discards in a 2 player game" in {
+    val players = Seq("Tyler", "Kevin")
+    val game = Game.startMatch(new Random(9195)).exec(Game(players));
+
+    game.visibleDiscard should have length (3)
+  }
+
+  it should "have no visible discards in a non 2 player game" in {
+    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    val game = Game.startMatch(new Random(9196)).exec(Game(players));
+
+    game.visibleDiscard should have length (0)
+  }
+
+//TODO
+  it should "have all players not eliminated and not protected, even if they were in the previous match"
+
   behavior of "The game deck"
 
   it should "be put in random order when shuffled" in {
@@ -114,7 +165,7 @@ class EngineSpec extends FlatSpec with Matchers {
 
     val (newGame, burntCard) = shuffleAndBurn(new Random(1341))(game)
     newGame.discard should be (game.discard)
-    newGame.visibleDiscard should contain only (burntCard)
+    newGame.visibleDiscard should contain theSameElementsAs (burntCard)
   }
 
   it should "no longer have its top card when a player draws" in {

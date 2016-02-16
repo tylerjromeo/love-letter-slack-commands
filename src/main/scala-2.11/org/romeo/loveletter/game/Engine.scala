@@ -42,6 +42,42 @@ object Game {
   }
 
   /**
+   * Starts a new match with the game's players. Throws away the old hand and discard states
+   */
+  def newMatch = State[Game, Unit] {
+    g: Game => {
+      (Game(g.players.map(p => Player(name = p.name, score = p.score))), {})
+    }
+  }
+
+  def startMatch(r: Random) = {
+    def burn3VisibleIfTwoPlayer = State[Game, Seq[Card]] {
+      g: Game => if(g.players.length == 2) {
+        def burn3 = for {
+          a <- burnCardVisible
+          b <- burnCardVisible
+          c <- burnCardVisible
+        } yield a ++ b ++ c
+        burn3(g)
+      } else {
+        (g, Nil)
+      }
+    }
+    def dealFirstCards = State[Game, Unit] {
+      game: Game => (game.players.foldLeft(game)((g, p) => drawCard(p.name).exec(g)), {})
+    }
+    for {
+      _ <- newMatch
+      _ <- shuffle(r)
+      _ <- burnCard
+      _ <- burn3VisibleIfTwoPlayer
+      _ <- dealFirstCards
+      p <- currentPlayer
+      _ <- drawCard(p.name)
+    } yield ()
+  }
+
+  /**
    * Removes the top card from the deck and returns it. The card will not be put in the discard pile
    */
   def burnCard = State[Game, Card] {
@@ -52,12 +88,12 @@ object Game {
    * Remove the top card from the deck and add it to the visible discard pile, then return it
    * Used in 2 player games when 3 cards are exposed at the beginning of each round
    */
-  def burnCardVisible: State[Game, Card] = {
+  def burnCardVisible: State[Game, Seq[Card]] = {
     //ok to keep this local because no one else should need it
     def addToVisibleDiscard(card: Card): State[Game, Card] = State[Game, Card] {
       g: Game => (g.copy(visibleDiscard = g.visibleDiscard :+ card), card)
     }
-    burnCard.flatMap(addToVisibleDiscard)
+    burnCard.flatMap(addToVisibleDiscard).map(Seq(_))
   }
 
   /**

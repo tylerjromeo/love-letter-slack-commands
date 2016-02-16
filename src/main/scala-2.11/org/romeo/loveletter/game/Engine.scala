@@ -28,6 +28,7 @@ object Game {
    * Cycles the list of players so the player in front is last. Returns the new current player
    */
   def endTurn = State[Game, Player] {
+    //TODO: remove protection from the last player, skip eliminated players
     g: Game => (Game(g.players.tail ++ Seq(g.players.head)), g.players(1))
   }
 
@@ -171,6 +172,27 @@ object Game {
       p <- currentPlayer
       _ <- drawCard(p.name)
     } yield ()
+  }
+
+  /**
+   * sets the player's "protected" value to true or false. returns the new player, or None if player doesn't exist
+   */
+  def protectPlayer(playerName: String, isProtected: Boolean): State[Game, Option[Player]] = {
+    for {
+      p <- getPlayer(playerName)
+      p2 <- updatePlayer(p.map(_.copy(isProtected = isProtected)))
+    } yield p2
+  }
+
+  /**
+   * sets the player's "eliminated" value to true or false. returns the new player, or None if player doesn't exist
+   */
+  def eliminatePlayer(playerName: String, isEliminated: Boolean): State[Game, Option[Player]] = {
+    //TODO also put their card into the discard
+    for {
+      p <- getPlayer(playerName)
+      p2 <- updatePlayer(p.map(_.copy(isEliminated = isEliminated)))
+    } yield p2
   }
 }
 

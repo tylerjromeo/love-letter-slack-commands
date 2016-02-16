@@ -318,7 +318,63 @@ class EngineSpec extends FlatSpec with Matchers {
     trev.score should be (0)
   }
 
-  it should "not change the state if a point is given to a user not in the game"
+  it should "not change the state if a point is given to a user not in the game" in {
+    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    val game = Game(players)
+
+    val newGame = Game.awardPoint("BADPLAYER").exec(game)
+    newGame should be (game)
+  }
+
+  it should "be eliminated if eliminate is called on them" in {
+      val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+      val game = Game(players)
+
+      def eliminateSome = for {
+        ty <- Game.eliminatePlayer(players(0), true)
+        kev <- Game.eliminatePlayer(players(1), true)
+      } yield (ty.get, kev.get)
+
+      val (newGame, (ty, kev)) = eliminateSome(game)
+      ty.isEliminated should be (true)
+      kev.isEliminated should be (true)
+      Game.getPlayer(players(0)).eval(newGame).get.isEliminated should be (true)
+      Game.getPlayer(players(1)).eval(newGame).get.isEliminated should be (true)
+      Game.getPlayer(players(2)).eval(newGame).get.isEliminated should be (false)
+      Game.getPlayer(players(3)).eval(newGame).get.isEliminated should be (false)
+  }
+
+  it should "not change the state of the game if a user not in the game is eliminated" in {
+      val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+      val game = Game(players)
+
+      Game.eliminatePlayer("BADPLAYER", true).exec(game) should be (game)
+  }
+
+  it should "be protected if protect is called on them" in {
+      val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+      val game = Game(players)
+
+      def protectSome = for {
+        ty <- Game.protectPlayer(players(0), true)
+        kev <- Game.protectPlayer(players(1), true)
+      } yield (ty.get, kev.get)
+
+      val (newGame, (ty, kev)) = protectSome(game)
+      ty.isProtected should be (true)
+      kev.isProtected should be (true)
+      Game.getPlayer(players(0)).eval(newGame).get.isProtected should be (true)
+      Game.getPlayer(players(1)).eval(newGame).get.isProtected should be (true)
+      Game.getPlayer(players(2)).eval(newGame).get.isProtected should be (false)
+      Game.getPlayer(players(3)).eval(newGame).get.isProtected should be (false)
+  }
+
+  it should "not change the state of the game if a user not in the game is protected" in {
+      val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+      val game = Game(players)
+
+      Game.protectPlayer("BADPLAYER", true).exec(game) should be (game)
+  }
 
   behavior of "The discard pile"
 

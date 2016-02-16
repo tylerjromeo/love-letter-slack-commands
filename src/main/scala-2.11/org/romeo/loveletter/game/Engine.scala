@@ -50,33 +50,6 @@ object Game {
     }
   }
 
-  def startMatch(r: Random) = {
-    def burn3VisibleIfTwoPlayer = State[Game, Seq[Card]] {
-      g: Game => if(g.players.length == 2) {
-        def burn3 = for {
-          a <- burnCardVisible
-          b <- burnCardVisible
-          c <- burnCardVisible
-        } yield a ++ b ++ c
-        burn3(g)
-      } else {
-        (g, Nil)
-      }
-    }
-    def dealFirstCards = State[Game, Unit] {
-      game: Game => (game.players.foldLeft(game)((g, p) => drawCard(p.name).exec(g)), {})
-    }
-    for {
-      _ <- newMatch
-      _ <- shuffle(r)
-      _ <- burnCard
-      _ <- burn3VisibleIfTwoPlayer
-      _ <- dealFirstCards
-      p <- currentPlayer
-      _ <- drawCard(p.name)
-    } yield ()
-  }
-
   /**
    * Removes the top card from the deck and returns it. The card will not be put in the discard pile
    */
@@ -155,6 +128,9 @@ object Game {
     }
   }
 
+  /**
+   * returns the winning player, or None if there isn't one
+   */
   def findWinner = State[Game, Option[Player]] {
     g: Game => {
       val threshold = g.players.length match {
@@ -165,6 +141,36 @@ object Game {
       }
       (g, g.players.find(_.score >= threshold))
     }
+  }
+
+  /**
+   * begins a new match by restarting the deck, burning, dealing, and drawing a card for the first player
+   */
+  def startMatch(r: Random) = {
+    def burn3VisibleIfTwoPlayer = State[Game, Seq[Card]] {
+      g: Game => if(g.players.length == 2) {
+        def burn3 = for {
+          a <- burnCardVisible
+          b <- burnCardVisible
+          c <- burnCardVisible
+        } yield a ++ b ++ c
+        burn3(g)
+      } else {
+        (g, Nil)
+      }
+    }
+    def dealFirstCards = State[Game, Unit] {
+      game: Game => (game.players.foldLeft(game)((g, p) => drawCard(p.name).exec(g)), {})
+    }
+    for {
+      _ <- newMatch
+      _ <- shuffle(r)
+      _ <- burnCard
+      _ <- burn3VisibleIfTwoPlayer
+      _ <- dealFirstCards
+      p <- currentPlayer
+      _ <- drawCard(p.name)
+    } yield ()
   }
 }
 

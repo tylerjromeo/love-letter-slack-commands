@@ -136,6 +136,9 @@ object Game {
       }).getOrElse(State[Game, List[Card]](g => (g, Nil))) )
   }
 
+  /**
+   * increments a players score, then returns that player. returns none and leaves the state the same if the player doesnt exist
+   */
   def awardPoint(playerName: String): State[Game, Option[Player]] = {
     getPlayer(playerName).flatMap(player => {
       updatePlayer(player.map(p => p.copy(score = p.score + 1)))

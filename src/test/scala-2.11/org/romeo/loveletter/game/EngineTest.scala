@@ -2,6 +2,7 @@ import scala.language.postfixOps
 import scala.util.Random
 import org.scalatest._
 import org.romeo.loveletter.game._
+import scalaz.State
 
 class EngineSpec extends FlatSpec with Matchers {
 
@@ -11,9 +12,71 @@ class EngineSpec extends FlatSpec with Matchers {
     val tooFewPlayers = Seq("Tyler")
     an [IllegalArgumentException] should be thrownBy Game(tooFewPlayers)
   }
+
   it should "fail to start with too many players" in {
     val tooManyPlayers = Seq("Tyler", "Kevin", "Morgan", "Trevor", "Jeff")
     an [IllegalArgumentException] should be thrownBy Game(tooManyPlayers)
+  }
+
+  it should "report a winner if a player has 7 points in a 2 player game" in {
+    val players = Seq("Tyler", "Kevin")
+    val game = Game(players);
+
+    def giveSomePoints = for {
+      _ <- Game.awardPoint(players(1))
+      _ <- Game.awardPoint(players(1))
+      _ <- Game.awardPoint(players(1))
+      _ <- Game.awardPoint(players(1))
+      _ <- Game.awardPoint(players(1))
+      _ <- Game.awardPoint(players(1))
+      nonWinner <- Game.findWinner
+      _ <- Game.awardPoint(players(1))
+      winner <- Game.findWinner
+    } yield (nonWinner, winner)
+
+    val (nonWinner, winner) = giveSomePoints.eval(game)
+    nonWinner should be (empty)
+    winner.get.name should be (players(1))
+    winner.get.score should be (7)
+  }
+
+  it should "report a winner if a player has 5 points in a 3 player game" in {
+    val players = Seq("Tyler", "Kevin", "Morgan")
+    val game = Game(players);
+
+    def giveSomePoints = for {
+      _ <- Game.awardPoint(players(1))
+      _ <- Game.awardPoint(players(1))
+      _ <- Game.awardPoint(players(1))
+      _ <- Game.awardPoint(players(1))
+      nonWinner <- Game.findWinner
+      _ <- Game.awardPoint(players(1))
+      winner <- Game.findWinner
+    } yield (nonWinner, winner)
+
+    val (nonWinner, winner) = giveSomePoints.eval(game)
+    nonWinner should be (empty)
+    winner.get.name should be (players(1))
+    winner.get.score should be (5)
+  }
+
+  it should "report a winner if a player has 4 points in a 4 player game" in {
+    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    val game = Game(players);
+
+    def giveSomePoints = for {
+      _ <- Game.awardPoint(players(1))
+      _ <- Game.awardPoint(players(1))
+      _ <- Game.awardPoint(players(1))
+      nonWinner <- Game.findWinner
+      _ <- Game.awardPoint(players(1))
+      winner <- Game.findWinner
+    } yield (nonWinner, winner)
+
+    val (nonWinner, winner) = giveSomePoints.eval(game)
+    nonWinner should be (empty)
+    winner.get.name should be (players(1))
+    winner.get.score should be (4)
   }
 
   behavior of "The first player"
@@ -94,67 +157,6 @@ class EngineSpec extends FlatSpec with Matchers {
     game.visibleDiscard should have length (0)
   }
 
-  it should "report a winner if a player has 7 points in a 2 player game" in {
-    val players = Seq("Tyler", "Kevin")
-    val game = Game(players);
-
-    def giveSomePoints = for {
-      _ <- Game.awardPoint(players(1))
-      _ <- Game.awardPoint(players(1))
-      _ <- Game.awardPoint(players(1))
-      _ <- Game.awardPoint(players(1))
-      _ <- Game.awardPoint(players(1))
-      _ <- Game.awardPoint(players(1))
-      nonWinner <- Game.findWinner
-      _ <- Game.awardPoint(players(1))
-      winner <- Game.findWinner
-    } yield (nonWinner, winner)
-
-    val (nonWinner, winner) = giveSomePoints.eval(game)
-    nonWinner should be (empty)
-    winner.get.name should be (players(1))
-    winner.get.score should be (7)
-  }
-
-  it should "report a winner if a player has 5 points in a 3 player game" in {
-    val players = Seq("Tyler", "Kevin", "Morgan")
-    val game = Game(players);
-
-    def giveSomePoints = for {
-      _ <- Game.awardPoint(players(1))
-      _ <- Game.awardPoint(players(1))
-      _ <- Game.awardPoint(players(1))
-      _ <- Game.awardPoint(players(1))
-      nonWinner <- Game.findWinner
-      _ <- Game.awardPoint(players(1))
-      winner <- Game.findWinner
-    } yield (nonWinner, winner)
-
-    val (nonWinner, winner) = giveSomePoints.eval(game)
-    nonWinner should be (empty)
-    winner.get.name should be (players(1))
-    winner.get.score should be (5)
-  }
-
-  it should "report a winner if a player has 4 points in a 4 player game" in {
-    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
-    val game = Game(players);
-
-    def giveSomePoints = for {
-      _ <- Game.awardPoint(players(1))
-      _ <- Game.awardPoint(players(1))
-      _ <- Game.awardPoint(players(1))
-      nonWinner <- Game.findWinner
-      _ <- Game.awardPoint(players(1))
-      winner <- Game.findWinner
-    } yield (nonWinner, winner)
-
-    val (nonWinner, winner) = giveSomePoints.eval(game)
-    nonWinner should be (empty)
-    winner.get.name should be (players(1))
-    winner.get.score should be (4)
-  }
-
   it should "have all players not eliminated and not protected, even if they were in the previous match" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
     val game = Game(players)
@@ -173,6 +175,110 @@ class EngineSpec extends FlatSpec with Matchers {
       p.isProtected should be (false)
       p.isEliminated should be (false)
     }
+  }
+
+  it should "have no winner if more than one player is left and the discard is not empty" in {
+    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    val game = Game(players)
+
+    def repeat[A, B](n: Int, s: State[A, B]): State[A, B] = if(n <= 1) s else s.flatMap(_ => repeat(n - 1, s))
+
+    def playSome = for {
+      _ <- Game.startMatch(new Random(795))
+      _ <- repeat(3, Game.drawCard(players(0)))
+      _ <- Game.eliminatePlayer(players(2), true)
+      winner <- Game.checkMatchOver(new Random(7374))
+    } yield winner
+
+    val (newGame, winner) = playSome(game)
+    //if the game hasn't restarted, the deck should have subtracted a burn card,
+    //a card per player, the first players initial draw, and the 3 extras we drew
+    newGame.deck.length should be (org.romeo.loveletter.game.Deck.cards.size - 1 - players.size - 1 - 3)
+    winner should be (empty)
+  }
+
+  it should "restart the match if there is a winner" in {
+    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    val game = Game(players)
+
+    def eliminateEveryoneElse = for {
+      _ <- Game.startMatch(new Random(9294))
+      _ <- Game.eliminatePlayer(players(0), true)
+      _ <- Game.eliminatePlayer(players(1), true)
+      _ <- Game.eliminatePlayer(players(2), true)
+      winner <- Game.checkMatchOver(new Random(85930))
+    } yield winner
+
+    val newGame = eliminateEveryoneElse.exec(game)
+    newGame.deck should not be (game.deck)
+    newGame.players.foreach(_.isEliminated should be (false))
+  }
+
+  it should "have the last remaining player be detected as the winner" in {
+    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    val game = Game(players)
+
+    def eliminateEveryoneElse = for {
+      _ <- Game.startMatch(new Random(9294))
+      _ <- Game.eliminatePlayer(players(0), true)
+      _ <- Game.eliminatePlayer(players(1), true)
+      _ <- Game.eliminatePlayer(players(2), true)
+      winner <- Game.checkMatchOver(new Random(85930))
+    } yield winner
+
+    val winner = eliminateEveryoneElse.eval(game)
+    winner.get.name should be (players(3))
+  }
+
+  it should "if the deck is empty, have the non eliminated player with the highest card be detected as the winner" in {
+    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    val game = Game(players)
+
+    def repeat[A, B](n: Int, s: State[A, B]): State[A, B] = if(n <= 1) s else s.flatMap(_ => repeat(n - 1, s))
+
+    val singleTurn = for {
+      _ <- Game.endTurn
+      currentPlayer <- Game.currentPlayer
+      _ <- Game.drawCard(currentPlayer.name)
+    } yield ()
+
+    val playTheGame = for {
+      _ <- Game.startMatch(new Random(3)) //with a seed of 3, player(0) should get the 8, and player(2) should get the 7
+      _ <- repeat(org.romeo.loveletter.game.Deck.cards.length - 6, singleTurn)
+      _ <- Game.eliminatePlayer(players(0), true)
+      winner <- Game.checkMatchOver(new Random(4131))
+    } yield winner
+
+    val (newGame, winner) = playTheGame(game)
+
+    winner should not be (empty)
+    winner.get.name should be (players(2))
+    Game.getPlayer(players(2)).eval(newGame).map(_.score).getOrElse(2) should be (1)
+  }
+
+    it should "if the deck is empty, have the player with the highest card be detected as the winner" in {
+    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    val game = Game(players)
+
+    def repeat[A, B](n: Int, s: State[A, B]): State[A, B] = if(n <= 1) s else s.flatMap(_ => repeat(n - 1, s))
+
+    val singleTurn = for {
+      _ <- Game.endTurn
+      currentPlayer <- Game.currentPlayer
+      _ <- Game.drawCard(currentPlayer.name)
+    } yield ()
+
+    val playTheGame = for {
+      _ <- Game.startMatch(new Random(3)) //with a seed of 3, player(0) should get the 8
+      _ <- repeat(org.romeo.loveletter.game.Deck.cards.length - 6, singleTurn)
+      winner <- Game.checkMatchOver(new Random(4131))
+    } yield winner
+
+    val (newGame, winner) = playTheGame(game)
+
+    winner should not be (empty)
+    winner.get.name should be (players(0))
+    Game.getPlayer(players(0)).eval(newGame).map(_.score).getOrElse(0) should be (1)
   }
 
   behavior of "The game deck"

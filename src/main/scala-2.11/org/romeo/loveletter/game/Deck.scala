@@ -18,6 +18,12 @@ trait Card {
   def doAction(state: Game): Unit = {}
 }
 
+object Card {  
+  implicit object CardOrdering extends Ordering[Card] {
+    def compare(a:Card, b:Card) = a.value compare b.value
+  }
+}
+
 case object Guard extends Card {
   val value = 1
   val description = "Name a non-Guard card and choose another player. If that player has that card, he or she is out of the round."

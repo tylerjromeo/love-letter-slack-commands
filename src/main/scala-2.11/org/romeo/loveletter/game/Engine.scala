@@ -14,6 +14,7 @@ case class Game(players: Seq[Player],
 }
 
 object Game {
+
   /**
    * Makes a new game object with the given player names
    */
@@ -29,7 +30,7 @@ object Game {
    */
   def endTurn = State[Game, Player] {
     //TODO: remove protection from the last player, skip eliminated players
-    g: Game => (Game(g.players.tail ++ Seq(g.players.head)), g.players(1))
+    g: Game => (g.copy(g.players.tail ++ Seq(g.players.head)), g.players(1))
   }
 
   /**
@@ -194,6 +195,35 @@ object Game {
       p2 <- updatePlayer(p.map(_.copy(isEliminated = isEliminated)))
     } yield p2
   }
+
+  /**
+   * Checks if the match had a winner, if it does, return that player. Otherwise return none
+   */
+  def findMatchWinner = State[Game, Option[Player]] {
+    g: Game => {
+      val remainingPlayers = g.players.filter(!_.isEliminated)
+      if(remainingPlayers.length == 1) {
+        (g, Some(remainingPlayers.head))
+      } else if(g.deck.isEmpty) {
+        (g, Some(remainingPlayers.max(org.romeo.loveletter.game.Player.PlayerOrdering))) //TODO: figure out how to make the ordering implicit
+      } else {
+        (g, None)
+      }
+    }
+  }
+
+  /**
+   * Checks if the match has a winner, If so, award them a point, return the player, and restart the match. Otherwise return none
+   * Should be called at the end of each turn during game processing
+   */
+  def checkMatchOver(r: Random): State[Game, Option[Player]] = {
+    findMatchWinner.flatMap(
+      _.map(p => awardPoint(p.name).
+      flatMap(_ => startMatch(r)).
+      map(_ => Some(p): Option[Player])).
+      getOrElse(State.state(None))
+    )
+  }
 }
 
 case class Player(name: String,//name must be unique among players in the game
@@ -202,3 +232,10 @@ case class Player(name: String,//name must be unique among players in the game
   isProtected: Boolean = false,
   score: Int = 0
 )
+
+object Player {
+  implicit object PlayerOrdering extends Ordering[Player] {
+    import org.romeo.loveletter.game.Card._
+    def compare(a:Player, b:Player) = a.hand.max.value compare b.hand.max.value
+  }
+}

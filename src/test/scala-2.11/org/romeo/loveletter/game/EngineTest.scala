@@ -155,8 +155,25 @@ class EngineSpec extends FlatSpec with Matchers {
     winner.get.score should be (4)
   }
 
-//TODO
-  it should "have all players not eliminated and not protected, even if they were in the previous match"
+  it should "have all players not eliminated and not protected, even if they were in the previous match" in {
+    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    val game = Game(players)
+
+    def modifyPlayersThenRestartMatch = for {
+      _ <- Game.startMatch(new Random(8375))
+      _ <- Game.protectPlayer(players(0), true)
+      _ <- Game.eliminatePlayer(players(0), true)
+      _ <- Game.protectPlayer(players(1), true)
+      _ <- Game.eliminatePlayer(players(2), true)
+      _ <- Game.startMatch(new Random(7482))
+    } yield ()
+
+    val newGame = modifyPlayersThenRestartMatch.exec(game)
+    newGame.players.foreach { p =>
+      p.isProtected should be (false)
+      p.isEliminated should be (false)
+    }
+  }
 
   behavior of "The game deck"
 

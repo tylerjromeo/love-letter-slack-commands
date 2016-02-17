@@ -552,4 +552,136 @@ class EngineSpec extends FlatSpec with Matchers {
     discard shouldBe empty
 
   }
+
+  behavior of "taking a turn"
+
+  it should "not change the game if a player not in the game tries to go" in {
+    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    val game = Game.startMatch(new Random(763567)).exec(Game(players))
+
+    val newGame = Game.processTurn("BADPLAYER", Guard, new Random(2375)).exec(game)
+
+    newGame should be (game)
+  }
+
+  it should "not change the game if it's not the player's turn" in {
+    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    val game = Game.startMatch(new Random(9293012)).exec(Game(players))
+
+    val newGame = (for {
+      p <- Game.getPlayer(players(3))
+      _ <- Game.processTurn(players(3), p.get.hand.head, new Random(5623))
+    } yield ()).exec(game)
+
+    newGame should be (game)
+  }
+
+  it should "not change the game if the player doesn't have the cards he wants to discard" in {
+    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    val game = Game.startMatch(new Random(9293012)).exec(Game(players))
+
+    def getCardPlayerDoesntHave(hand: Seq[Card]): Option[Card] = {
+      val allCards = Seq(Guard, Priest, Baron, Handmaid, Prince, King, Countess, Princess)
+      allCards.filterNot(hand.contains(_)).headOption
+    }
+
+    val newGame = (for {
+      p <- Game.currentPlayer
+      _ <- Game.processTurn(p.name, getCardPlayerDoesntHave(p.hand).get, new Random(5623))
+    } yield ()).exec(game)
+
+    newGame should be (game)
+  }
+
+  it should "be the next player's turn after the current player takes a turn" in {
+    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    val game = Game.startMatch(new Random(5672)).exec(Game(players))
+
+    def takeATurnThenGetNextPlayer = for {
+      p <- Game.currentPlayer
+      _ <- Game.processTurn(p.name, p.hand.head, new Random(7938))
+      p2 <- Game.currentPlayer
+    } yield p2
+
+    val (newGame, nextPlayer) = takeATurnThenGetNextPlayer(game)
+
+    nextPlayer.name should be (players(1))
+  }
+
+  it should "add the discarded card to the discard pile" in {
+    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    val game = Game.startMatch(new Random(5672)).exec(Game(players))
+
+    def takeATurn = for {
+      p <- Game.currentPlayer
+      _ <- Game.processTurn(p.name, p.hand.head, new Random(7938))
+    } yield p.hand.head
+
+    val (newGame, discard) = takeATurn(game)
+
+    newGame.discard.head should be (discard)
+  }
+
+  it should "detect and return the winner of a match" in {
+    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    val game = Game.startMatch(new Random(5672)).exec(Game(players))
+
+    def makeSomeoneWinnerThenTakeTurn = for {
+      _ <- Game.eliminatePlayer(players(1), true)
+      _ <- Game.eliminatePlayer(players(2), true)
+      _ <- Game.eliminatePlayer(players(3), true)
+      p <- Game.currentPlayer
+      winners <- Game.processTurn(p.name, p.hand.head, new Random(28471234))
+    } yield (winners._1, winners._2)
+
+    val (matchWinner, gameWinner) = makeSomeoneWinnerThenTakeTurn.eval(game)
+
+    matchWinner.get.name should be (players(0))
+    gameWinner should be (empty)
+  }
+
+  it should "start a new match if there is a winner" in {
+    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    val game = Game.startMatch(new Random(5672)).exec(Game(players))
+
+    def makeSomeoneWinner = for {
+      _ <- Game.eliminatePlayer(players(1), true)
+      _ <- Game.eliminatePlayer(players(2), true)
+      _ <- Game.eliminatePlayer(players(3), true)
+    } yield ()
+
+    val newGame1 = makeSomeoneWinner.exec(game)
+    val newGame2 = (for {
+      p <- Game.currentPlayer
+      _ <- Game.processTurn(p.name, p.hand.head, new Random(9989))
+    } yield ()).exec(newGame1)
+
+    newGame1.deck should not be newGame2.deck
+    newGame2.players.foreach(_.isEliminated should be (false))
+    //To prove that a new match has started, shuffle a new deck with the same seed as the new match.
+    //If the decks have the same tails, that shows that there's a new game
+    Game.shuffle(new Random(9989)).exec(Game(players)).deck.endsWith(newGame2.deck) should be (true)
+
+  }
+
+  it should "detect and return the winner of a game" in {
+    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    val game = Game.startMatch(new Random(5672)).exec(Game(players))
+
+    def makeSomeoneWinnerThenTakeTurn = for {
+      _ <- Game.eliminatePlayer(players(1), true)
+      _ <- Game.eliminatePlayer(players(2), true)
+      _ <- Game.eliminatePlayer(players(3), true)
+      _ <- Game.awardPoint(players(0))
+      _ <- Game.awardPoint(players(0))
+      _ <- Game.awardPoint(players(0))
+      p <- Game.currentPlayer
+      winners <- Game.processTurn(p.name, p.hand.head, new Random(28471234))
+    } yield (winners._1, winners._2)
+
+    val (matchWinner, gameWinner) = makeSomeoneWinnerThenTakeTurn.eval(game)
+
+    matchWinner.get.name should be (players(0))
+    gameWinner.get.name should be (players(0))
+  }
 }

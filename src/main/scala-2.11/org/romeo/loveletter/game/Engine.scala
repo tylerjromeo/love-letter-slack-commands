@@ -13,6 +13,7 @@ case class Game(players: Seq[Player],
   require(players.length <= 4, "No more than 4 players")
 }
 
+//TODO: make all these Randoms around be implicit so I don't have to mess with them
 object Game {
 
   /**
@@ -148,6 +149,7 @@ object Game {
   /**
    * begins a new match by restarting the deck, burning, dealing, and drawing a card for the first player
    */
+   //TODO: set a first player for the match
   def startMatch(r: Random) = {
     def burn3VisibleIfTwoPlayer = State[Game, Seq[Card]] {
       g: Game => if(g.players.length == 2) {
@@ -222,6 +224,33 @@ object Game {
       flatMap(_ => startMatch(r)).
       map(_ => Some(p): Option[Player])).
       getOrElse(State.state(None))
+    )
+  }
+
+  //TODO: add parameter with player's action choice for the card
+  /**
+   * Iterate through one turn of the game. This function will:
+   * if the player name passed in matches the current player, discard that card from their hand (else don't change the state)
+   * TODO handle any effects from that discard
+   * check to see if any player has won the match, if so iterate to a new match
+   * check to see if any player has won the game
+   * return a tuple with an optional winner of the match, and an optional winner of the game
+   */
+  def processTurn(playerName: String, discard: Card, r: Random): State[Game, (Option[Player], Option[Player])] = {
+    getPlayer(playerName).flatMap(playerOption =>
+      playerOption.flatMap(p => {
+        //this is kind of cheating, but we can tell if the player is the current player by seeing if they have 2 cards in their hand
+        if(p.hand.length == 2 && p.hand.contains(discard)) {
+          Some(for {
+            _ <- playerDiscard(p.name, discard)
+            _ <- endTurn
+            matchWinner <- checkMatchOver(r)
+            gameWinner <- findWinner
+          } yield (matchWinner, gameWinner))
+        } else {
+          None
+        }
+      }).getOrElse(State.state((None, None)))
     )
   }
 }

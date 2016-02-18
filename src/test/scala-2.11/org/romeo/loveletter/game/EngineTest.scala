@@ -531,7 +531,7 @@ class EngineSpec extends FlatSpec with Matchers {
 
   it should "no longer be protected one their turn passes" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
-    implicit val r = new Random(8344)
+    implicit val r = new Random(24) //Use 24 as a seed for tests that need to ignore card effects. This will give the first player a countess
     val game = Game.startMatch(Some(players(0))).exec(Game(players))
 
     def protectPlayerThenEndTheirTurn = for {
@@ -548,7 +548,7 @@ class EngineSpec extends FlatSpec with Matchers {
 
   it should "be skipped in the turn order if they are eliminated" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
-    implicit val r = new Random(26621)
+    implicit val r = new Random(24) //Use 24 as a seed for tests that need to ignore card effects. This will give the first player a countess
     val game = Game.startMatch(Some(players(0))).exec(Game(players))
 
     def eliminateThenSwitchTurns = for {
@@ -630,14 +630,14 @@ class EngineSpec extends FlatSpec with Matchers {
     implicit val r = new Random(761247)
     val game = Game.startMatch(Some(players(0))).exec(Game(players))
 
-    val newGame = Game.processTurn("BADPLAYER", Guard).exec(game)
+    val newGame = Game.processTurn("BADPLAYER", Countess).exec(game)
 
     newGame should be(game)
   }
 
   it should "not change the game if it's not the player's turn" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
-    implicit val r = new Random(91283467)
+    implicit val r = new Random(3) //a seed of 3 gives the 4th player a countess, so there will be no side effects from the discard
     val game = Game.startMatch(Some(players(0))).exec(Game(players))
 
     val newGame = (for {
@@ -650,17 +650,12 @@ class EngineSpec extends FlatSpec with Matchers {
 
   it should "not change the game if the player doesn't have the cards he wants to discard" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
-    implicit val r = new Random(81234578)
+    implicit val r = new Random(81234578) //won't give the player a countess
     val game = Game.startMatch(Some(players(0))).exec(Game(players))
-
-    def getCardPlayerDoesntHave(hand: Seq[Card]): Option[Card] = {
-      val allCards = Seq(Guard, Priest, Baron, Handmaid, Prince, King, Countess, Princess)
-      allCards.filterNot(hand.contains(_)).headOption
-    }
 
     val newGame = (for {
       p <- Game.currentPlayer
-      _ <- Game.processTurn(p.name, getCardPlayerDoesntHave(p.hand).get)
+      _ <- Game.processTurn(p.name, Countess)
     } yield ()).exec(game)
 
     newGame should be(game)
@@ -684,7 +679,7 @@ class EngineSpec extends FlatSpec with Matchers {
 
   it should "add the discarded card to the discard pile" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
-    implicit val r = new Random(56723)
+    implicit val r = new Random(24) //Use 24 as a seed for tests that need to ignore card effects. This will give the first player a countess
     val game = Game.startMatch(Some(players(0))).exec(Game(players))
 
     def takeATurn = for {
@@ -719,7 +714,8 @@ class EngineSpec extends FlatSpec with Matchers {
   it should "start a new match if there is a winner" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
     val seed = 93713
-    val game = Game.startMatch(Some(players(0)))(new Random(2374)).exec(Game(players))
+    //Use 24 as a seed for tests that need to ignore card effects. This will give the first player a countess
+    val game = Game.startMatch(Some(players(0)))(new Random(24)).exec(Game(players))
 
     def makeSomeoneWinner = for {
       _ <- Game.eliminatePlayer(players(1), true)
@@ -743,7 +739,7 @@ class EngineSpec extends FlatSpec with Matchers {
 
   it should "detect and return the winner of a game" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
-    implicit val r = new Random(72348)
+    implicit val r = new Random(24) //Use 24 as a seed for tests that need to ignore card effects. This will give the first player a countess
     val game = Game.startMatch(Some(players(0))).exec(Game(players))
 
     def makeSomeoneWinnerThenTakeTurn = for {

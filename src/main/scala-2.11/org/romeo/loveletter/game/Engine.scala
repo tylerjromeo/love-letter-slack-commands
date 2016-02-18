@@ -258,14 +258,22 @@ object Game {
    * check to see if any player has won the game
    * return a tuple with an optional winner of the match, and an optional winner of the game
    */
-  def processTurn(playerName: String, discard: Card)(implicit r: Random): State[Game, (Option[Player], Option[Player])] = {
+  def processTurn(playerName: String, discard: Card, targetName: Option[String] = None, guess: Option[Card] = None)(implicit r: Random): State[Game, (Option[Player], Option[Player])] = {
+    //just crash if a card requires a target and/or guess and it doesn't have it
+    //planning on letting the interface layer validate the requests
+    require(!discard.requiresTarget || targetName.isDefined)
+    require(!discard.requiresGuess || guess.isDefined)
+
+    def maybeEndTurn(b: Boolean):State[Game, _] = if(b) endTurn else State.state(None)
+
     getPlayer(playerName).flatMap(playerOption =>
       playerOption.flatMap(p => {
         //this is kind of cheating, but we can tell if the player is the current player by seeing if they have 2 cards in their hand
         if (p.hand.length == 2 && p.hand.contains(discard)) {
           Some(for {
             _ <- playerDiscard(p.name, discard)
-            _ <- endTurn
+            actionResult <- discard.doAction(p, targetName, guess)
+            _ <- maybeEndTurn(actionResult.isRight)
             matchWinner <- checkMatchOver(r)
             gameWinner <- findWinner
           } yield (matchWinner, gameWinner))

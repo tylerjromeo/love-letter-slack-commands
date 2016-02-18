@@ -51,7 +51,7 @@ object Game {
   /**
    * Puts the contents of the deck in random order, and returns the deck
    */
-  def shuffle(r: Random): State[Game, Seq[Card]] = State[Game, Seq[Card]] {
+  def shuffle(implicit r: Random): State[Game, Seq[Card]] = State[Game, Seq[Card]] {
     g: Game =>
       {
         val newDeck = r.shuffle(g.deck)
@@ -171,7 +171,7 @@ object Game {
   /**
    * begins a new match by restarting the deck, burning, dealing, and drawing a card for the first player
    */
-  def startMatch(r: Random, firstPlayer: Option[String] = None) = {
+  def startMatch(firstPlayer: Option[String] = None)(implicit r: Random) = {
     def burn3VisibleIfTwoPlayer = State[Game, Seq[Card]] {
       g: Game =>
         if (g.players.length == 2) {
@@ -242,10 +242,10 @@ object Game {
    * Checks if the match has a winner, If so, award them a point, return the player, and restart the match. Otherwise return none
    * Should be called at the end of each turn during game processing
    */
-  def checkMatchOver(r: Random): State[Game, Option[Player]] = {
+  def checkMatchOver(implicit r: Random): State[Game, Option[Player]] = {
     findMatchWinner.flatMap(
       _.map(p => awardPoint(p.name).
-        flatMap(_ => startMatch(r, Some(p.name))).
+        flatMap(_ => startMatch(Some(p.name))(r)).
         map(_ => Some(p): Option[Player])).
         getOrElse(State.state(None)))
   }
@@ -259,7 +259,7 @@ object Game {
    * check to see if any player has won the game
    * return a tuple with an optional winner of the match, and an optional winner of the game
    */
-  def processTurn(playerName: String, discard: Card, r: Random): State[Game, (Option[Player], Option[Player])] = {
+  def processTurn(playerName: String, discard: Card)(implicit r: Random): State[Game, (Option[Player], Option[Player])] = {
     getPlayer(playerName).flatMap(playerOption =>
       playerOption.flatMap(p => {
         //this is kind of cheating, but we can tell if the player is the current player by seeing if they have 2 cards in their hand

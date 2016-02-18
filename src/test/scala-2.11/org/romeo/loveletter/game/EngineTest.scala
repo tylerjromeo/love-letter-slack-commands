@@ -113,7 +113,7 @@ class EngineSpec extends FlatSpec with Matchers {
 
   it should "have 2 cards for the current player" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
-    val game = Game.startMatch(new Random(9191), Some(players(0))).exec(Game(players));
+    val game = Game.startMatch(Some(players(0)))(new Random(9191)).exec(Game(players));
 
     val currentPlayer = Game.currentPlayer.eval(game);
     currentPlayer.hand should have length 2
@@ -121,7 +121,7 @@ class EngineSpec extends FlatSpec with Matchers {
 
   it should "have 1 for player whose turn it isn't when starting a game" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
-    val game = Game.startMatch(new Random(9192), Some(players(0))).exec(Game(players));
+    val game = Game.startMatch(Some(players(0)))(new Random(9192)).exec(Game(players));
 
     val currentPlayer = Game.currentPlayer.eval(game);
     (game.players.diff(Seq(currentPlayer))).foreach(_.hand should have length 1)
@@ -129,7 +129,7 @@ class EngineSpec extends FlatSpec with Matchers {
 
   it should "have the same number of cards in the game as were in the deck (minus burn card)" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
-    val game = Game.startMatch(new Random(9193), Some(players(0))).exec(Game(players));
+    val game = Game.startMatch(Some(players(0)))(new Random(9193)).exec(Game(players));
 
     val cardsInPlay = game.players.foldLeft(0)((acc, p) => acc + p.hand.length) + game.deck.length + game.visibleDiscard.length + game.discard.length
     cardsInPlay + 1 should be(org.romeo.loveletter.game.Deck.cards.length)
@@ -137,7 +137,8 @@ class EngineSpec extends FlatSpec with Matchers {
 
   it should "have the same number of cards in the game as were in the deck (minus burn card) for a 2 player game" in {
     val players = Seq("Tyler", "Kevin")
-    val game = Game.startMatch(new Random(9194), Some(players(0))).exec(Game(players));
+    implicit val r = new Random(9194)
+    val game = Game.startMatch(Some(players(0))).exec(Game(players));
 
     val cardsInPlay = game.players.foldLeft(0)((acc, p) => acc + p.hand.length) + game.deck.length + game.visibleDiscard.length + game.discard.length
     cardsInPlay + 1 should be(org.romeo.loveletter.game.Deck.cards.length)
@@ -145,14 +146,16 @@ class EngineSpec extends FlatSpec with Matchers {
 
   it should "have 3 visible discards in a 2 player game" in {
     val players = Seq("Tyler", "Kevin")
-    val game = Game.startMatch(new Random(9195), Some(players(0))).exec(Game(players));
+    implicit val r = new Random(9195)
+    val game = Game.startMatch(Some(players(0))).exec(Game(players));
 
     game.visibleDiscard should have length (3)
   }
 
   it should "have no visible discards in a non 2 player game" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
-    val game = Game.startMatch(new Random(9196), Some(players(0))).exec(Game(players));
+    implicit val r = new Random(9196)
+    val game = Game.startMatch(Some(players(0))).exec(Game(players));
 
     game.visibleDiscard should have length (0)
   }
@@ -162,12 +165,12 @@ class EngineSpec extends FlatSpec with Matchers {
     val game = Game(players)
 
     def modifyPlayersThenRestartMatch = for {
-      _ <- Game.startMatch(new Random(8375))
+      _ <- Game.startMatch()(new Random(8375))
       _ <- Game.protectPlayer(players(0), true)
       _ <- Game.eliminatePlayer(players(0), true)
       _ <- Game.protectPlayer(players(1), true)
       _ <- Game.eliminatePlayer(players(2), true)
-      _ <- Game.startMatch(new Random(7482))
+      _ <- Game.startMatch()(new Random(7482))
     } yield ()
 
     val newGame = modifyPlayersThenRestartMatch.exec(game)
@@ -180,11 +183,12 @@ class EngineSpec extends FlatSpec with Matchers {
   it should "have no winner if more than one player is left and the discard is not empty" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
     val game = Game(players)
+    implicit val r = new Random(795)
 
     def repeat[A, B](n: Int, s: State[A, B]): State[A, B] = if (n <= 1) s else s.flatMap(_ => repeat(n - 1, s))
 
     def playSome = for {
-      _ <- Game.startMatch(new Random(795), Some(players(0)))
+      _ <- Game.startMatch(Some(players(0)))
       _ <- repeat(3, Game.drawCard(players(0)))
       _ <- Game.eliminatePlayer(players(2), true)
       winner <- Game.checkMatchOver(new Random(7374))
@@ -202,7 +206,7 @@ class EngineSpec extends FlatSpec with Matchers {
     val game = Game(players)
 
     def eliminateEveryoneElse = for {
-      _ <- Game.startMatch(new Random(9294), Some(players(0)))
+      _ <- Game.startMatch(Some(players(0)))(new Random(9294))
       _ <- Game.eliminatePlayer(players(0), true)
       _ <- Game.eliminatePlayer(players(1), true)
       _ <- Game.eliminatePlayer(players(2), true)
@@ -219,7 +223,7 @@ class EngineSpec extends FlatSpec with Matchers {
     val game = Game(players)
 
     def eliminateEveryoneElseThenStartNewMatch = for {
-      _ <- Game.startMatch(new Random(9294), Some(players(0)))
+      _ <- Game.startMatch(Some(players(0)))(new Random(9294))
       _ <- Game.eliminatePlayer(players(0), true)
       _ <- Game.eliminatePlayer(players(1), true)
       _ <- Game.eliminatePlayer(players(2), true)
@@ -237,7 +241,7 @@ class EngineSpec extends FlatSpec with Matchers {
     val game = Game(players)
 
     def eliminateEveryoneElse = for {
-      _ <- Game.startMatch(new Random(9294), Some(players(0)))
+      _ <- Game.startMatch(Some(players(0)))(new Random(9294))
       _ <- Game.eliminatePlayer(players(0), true)
       _ <- Game.eliminatePlayer(players(1), true)
       _ <- Game.eliminatePlayer(players(2), true)
@@ -261,7 +265,7 @@ class EngineSpec extends FlatSpec with Matchers {
     } yield ()
 
     val playTheGame = for {
-      _ <- Game.startMatch(new Random(3), Some(players(0))) //with a seed of 3, player(0) should get the 8, and player(2) should get the 7
+      _ <- Game.startMatch(Some(players(0)))(new Random(3)) //with a seed of 3, player(0) should get the 8, and player(2) should get the 7
       _ <- repeat(org.romeo.loveletter.game.Deck.cards.length - 6, singleTurn)
       _ <- Game.eliminatePlayer(players(0), true)
       winner <- Game.checkMatchOver(new Random(4131))
@@ -287,7 +291,7 @@ class EngineSpec extends FlatSpec with Matchers {
     } yield ()
 
     val playTheGame = for {
-      _ <- Game.startMatch(new Random(3), Some(players(0))) //with a seed of 3, player(0) should get the 8
+      _ <- Game.startMatch(Some(players(0)))(new Random(3)) //with a seed of 3, player(0) should get the 8
       _ <- repeat(org.romeo.loveletter.game.Deck.cards.length - 6, singleTurn)
       winner <- Game.checkMatchOver(new Random(4131))
     } yield winner
@@ -487,7 +491,8 @@ class EngineSpec extends FlatSpec with Matchers {
 
   it should "have their card discarded if they are eliminated" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
-    val game = Game.startMatch(new Random(73705), Some(players(0))).exec(Game(players))
+    implicit val r = new Random(73705)
+    val game = Game.startMatch(Some(players(0))).exec(Game(players))
 
     def checkKevinsCardThenEliminate = for {
       kev <- Game.getPlayer(players(1))
@@ -526,11 +531,12 @@ class EngineSpec extends FlatSpec with Matchers {
 
   it should "no longer be protected one their turn passes" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
-    val game = Game.startMatch(new Random(8344), Some(players(0))).exec(Game(players))
+    implicit val r = new Random(8344)
+    val game = Game.startMatch(Some(players(0))).exec(Game(players))
 
     def protectPlayerThenEndTheirTurn = for {
       p1 <- Game.protectPlayer(players(0), true)
-      _ <- Game.processTurn(p1.get.name, p1.get.hand.head, new Random(7735))
+      _ <- Game.processTurn(p1.get.name, p1.get.hand.head)
       p2 <- Game.getPlayer(players(0))
     } yield (p1.get, p2.get)
 
@@ -542,12 +548,13 @@ class EngineSpec extends FlatSpec with Matchers {
 
   it should "be skipped in the turn order if they are eliminated" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
-    val game = Game.startMatch(new Random(26621), Some(players(0))).exec(Game(players))
+    implicit val r = new Random(26621)
+    val game = Game.startMatch(Some(players(0))).exec(Game(players))
 
     def eliminateThenSwitchTurns = for {
       _ <- Game.eliminatePlayer(players(1), true)
       p1 <- Game.currentPlayer
-      _ <- Game.processTurn(p1.name, p1.hand.head, new Random(236523))
+      _ <- Game.processTurn(p1.name, p1.hand.head)
       p2 <- Game.currentPlayer
     } yield p2
 
@@ -620,20 +627,22 @@ class EngineSpec extends FlatSpec with Matchers {
 
   it should "not change the game if a player not in the game tries to go" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
-    val game = Game.startMatch(new Random(763567), Some(players(0))).exec(Game(players))
+    implicit val r = new Random(761247)
+    val game = Game.startMatch(Some(players(0))).exec(Game(players))
 
-    val newGame = Game.processTurn("BADPLAYER", Guard, new Random(2375)).exec(game)
+    val newGame = Game.processTurn("BADPLAYER", Guard).exec(game)
 
     newGame should be(game)
   }
 
   it should "not change the game if it's not the player's turn" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
-    val game = Game.startMatch(new Random(9293012), Some(players(0))).exec(Game(players))
+    implicit val r = new Random(91283467)
+    val game = Game.startMatch(Some(players(0))).exec(Game(players))
 
     val newGame = (for {
       p <- Game.getPlayer(players(3))
-      _ <- Game.processTurn(players(3), p.get.hand.head, new Random(5623))
+      _ <- Game.processTurn(players(3), p.get.hand.head)
     } yield ()).exec(game)
 
     newGame should be(game)
@@ -641,7 +650,8 @@ class EngineSpec extends FlatSpec with Matchers {
 
   it should "not change the game if the player doesn't have the cards he wants to discard" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
-    val game = Game.startMatch(new Random(9293012), Some(players(0))).exec(Game(players))
+    implicit val r = new Random(81234578)
+    val game = Game.startMatch(Some(players(0))).exec(Game(players))
 
     def getCardPlayerDoesntHave(hand: Seq[Card]): Option[Card] = {
       val allCards = Seq(Guard, Priest, Baron, Handmaid, Prince, King, Countess, Princess)
@@ -650,7 +660,7 @@ class EngineSpec extends FlatSpec with Matchers {
 
     val newGame = (for {
       p <- Game.currentPlayer
-      _ <- Game.processTurn(p.name, getCardPlayerDoesntHave(p.hand).get, new Random(5623))
+      _ <- Game.processTurn(p.name, getCardPlayerDoesntHave(p.hand).get)
     } yield ()).exec(game)
 
     newGame should be(game)
@@ -658,11 +668,12 @@ class EngineSpec extends FlatSpec with Matchers {
 
   it should "be the next player's turn after the current player takes a turn" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
-    val game = Game.startMatch(new Random(5672), Some(players(0))).exec(Game(players))
+    implicit val r = new Random(9195)
+    val game = Game.startMatch(Some(players(0))).exec(Game(players))
 
     def takeATurnThenGetNextPlayer = for {
       p <- Game.currentPlayer
-      _ <- Game.processTurn(p.name, p.hand.head, new Random(7938))
+      _ <- Game.processTurn(p.name, p.hand.head)
       p2 <- Game.currentPlayer
     } yield p2
 
@@ -673,11 +684,12 @@ class EngineSpec extends FlatSpec with Matchers {
 
   it should "add the discarded card to the discard pile" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
-    val game = Game.startMatch(new Random(5672), Some(players(0))).exec(Game(players))
+    implicit val r = new Random(56723)
+    val game = Game.startMatch(Some(players(0))).exec(Game(players))
 
     def takeATurn = for {
       p <- Game.currentPlayer
-      _ <- Game.processTurn(p.name, p.hand.head, new Random(7938))
+      _ <- Game.processTurn(p.name, p.hand.head)
     } yield p.hand.head
 
     val (newGame, discard) = takeATurn(game)
@@ -687,14 +699,15 @@ class EngineSpec extends FlatSpec with Matchers {
 
   it should "detect and return the winner of a match" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
-    val game = Game.startMatch(new Random(5672), Some(players(0))).exec(Game(players))
+    implicit val r = new Random(5672)
+    val game = Game.startMatch(Some(players(0))).exec(Game(players))
 
     def makeSomeoneWinnerThenTakeTurn = for {
       _ <- Game.eliminatePlayer(players(1), true)
       _ <- Game.eliminatePlayer(players(2), true)
       _ <- Game.eliminatePlayer(players(3), true)
       p <- Game.currentPlayer
-      winners <- Game.processTurn(p.name, p.hand.head, new Random(28471234))
+      winners <- Game.processTurn(p.name, p.hand.head)
     } yield (winners._1, winners._2)
 
     val (matchWinner, gameWinner) = makeSomeoneWinnerThenTakeTurn.eval(game)
@@ -705,7 +718,8 @@ class EngineSpec extends FlatSpec with Matchers {
 
   it should "start a new match if there is a winner" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
-    val game = Game.startMatch(new Random(5672), Some(players(0))).exec(Game(players))
+    val seed = 93713
+    val game = Game.startMatch(Some(players(0)))(new Random(2374)).exec(Game(players))
 
     def makeSomeoneWinner = for {
       _ <- Game.eliminatePlayer(players(1), true)
@@ -716,20 +730,21 @@ class EngineSpec extends FlatSpec with Matchers {
     val newGame1 = makeSomeoneWinner.exec(game)
     val newGame2 = (for {
       p <- Game.currentPlayer
-      _ <- Game.processTurn(p.name, p.hand.head, new Random(9989))
+      _ <- Game.processTurn(p.name, p.hand.head)(new Random(seed))
     } yield ()).exec(newGame1)
 
     newGame1.deck should not be newGame2.deck
     newGame2.players.foreach(_.isEliminated should be(false))
     //To prove that a new match has started, shuffle a new deck with the same seed as the new match.
     //If the decks have the same tails, that shows that there's a new game
-    Game.shuffle(new Random(9989)).exec(Game(players)).deck.endsWith(newGame2.deck) should be(true)
+    Game.shuffle(new Random(seed)).exec(Game(players)).deck.endsWith(newGame2.deck) should be(true)
 
   }
 
   it should "detect and return the winner of a game" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
-    val game = Game.startMatch(new Random(5672), Some(players(0))).exec(Game(players))
+    implicit val r = new Random(72348)
+    val game = Game.startMatch(Some(players(0))).exec(Game(players))
 
     def makeSomeoneWinnerThenTakeTurn = for {
       _ <- Game.eliminatePlayer(players(1), true)
@@ -739,7 +754,7 @@ class EngineSpec extends FlatSpec with Matchers {
       _ <- Game.awardPoint(players(0))
       _ <- Game.awardPoint(players(0))
       p <- Game.currentPlayer
-      winners <- Game.processTurn(p.name, p.hand.head, new Random(28471234))
+      winners <- Game.processTurn(p.name, p.hand.head)
     } yield (winners._1, winners._2)
 
     val (matchWinner, gameWinner) = makeSomeoneWinnerThenTakeTurn.eval(game)

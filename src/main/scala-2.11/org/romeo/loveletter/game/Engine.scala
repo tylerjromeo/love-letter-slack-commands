@@ -9,8 +9,7 @@ case class Game(
   players: Seq[Player],
   deck: Seq[Card] = Deck.cards,
   discard: List[Card] = Nil,
-  visibleDiscard: Seq[Card] = Nil
-) {
+  visibleDiscard: Seq[Card] = Nil) {
   require(players.length >= 2, "Need at least 2 players")
   require(players.length <= 4, "No more than 4 players")
 }
@@ -63,10 +62,13 @@ object Game {
   /**
    * Starts a new match with the game's players. Throws away the old hand and discard states
    */
-  def newMatch = State[Game, Unit] {
+  def newMatch(firstPlayer: Option[String], r: Random) = State[Game, Unit] {
     g: Game =>
       {
-        (Game(g.players.map(p => Player(name = p.name, score = p.score))), {})
+        val freshPlayers = g.players.map(p => Player(name = p.name, score = p.score))
+        val firstPlayerOrRandom = firstPlayer.getOrElse(r.shuffle(freshPlayers).head.name)
+        val splitPlayers = freshPlayers.splitAt(freshPlayers.indexWhere(_.name == firstPlayerOrRandom))
+        (Game(splitPlayers._2 ++ splitPlayers._1), {})
       }
   }
 
@@ -112,8 +114,7 @@ object Game {
   def updatePlayer(player: Option[Player]) = State[Game, Option[Player]] {
     g: Game =>
       player.map(
-        p => (g.copy(players = g.players.updated(g.players.indexWhere(_.name == p.name), p)), Some(p))
-      ).getOrElse((g, None: Option[Player]))
+        p => (g.copy(players = g.players.updated(g.players.indexWhere(_.name == p.name), p)), Some(p))).getOrElse((g, None: Option[Player]))
   }
 
   /**
@@ -170,8 +171,7 @@ object Game {
   /**
    * begins a new match by restarting the deck, burning, dealing, and drawing a card for the first player
    */
-  //TODO: set a first player for the match
-  def startMatch(r: Random) = {
+  def startMatch(r: Random, firstPlayer: Option[String] = None) = {
     def burn3VisibleIfTwoPlayer = State[Game, Seq[Card]] {
       g: Game =>
         if (g.players.length == 2) {
@@ -189,7 +189,7 @@ object Game {
       game: Game => (game.players.foldLeft(game)((g, p) => drawCard(p.name).exec(g)), {})
     }
     for {
-      _ <- newMatch
+      _ <- newMatch(firstPlayer, r)
       _ <- shuffle(r)
       _ <- burnCard
       _ <- burn3VisibleIfTwoPlayer
@@ -245,10 +245,9 @@ object Game {
   def checkMatchOver(r: Random): State[Game, Option[Player]] = {
     findMatchWinner.flatMap(
       _.map(p => awardPoint(p.name).
-        flatMap(_ => startMatch(r)).
+        flatMap(_ => startMatch(r, Some(p.name))).
         map(_ => Some(p): Option[Player])).
-        getOrElse(State.state(None))
-    )
+        getOrElse(State.state(None)))
   }
 
   //TODO: add parameter with player's action choice for the card
@@ -283,8 +282,7 @@ case class Player(
   hand: Seq[Card] = Nil,
   isEliminated: Boolean = false,
   isProtected: Boolean = false,
-  score: Int = 0
-)
+  score: Int = 0)
 
 object Player {
   implicit object PlayerOrdering extends Ordering[Player] {

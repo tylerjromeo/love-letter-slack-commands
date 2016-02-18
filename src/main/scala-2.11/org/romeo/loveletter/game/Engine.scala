@@ -14,7 +14,6 @@ case class Game(
   require(players.length <= 4, "No more than 4 players")
 }
 
-//TODO: make all these Randoms around be implicit so I don't have to mess with them
 object Game {
 
   /**

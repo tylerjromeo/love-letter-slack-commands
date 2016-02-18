@@ -5,10 +5,12 @@ import scala.collection.immutable.List
 
 import scalaz.State
 
-case class Game(players: Seq[Player],
+case class Game(
+  players: Seq[Player],
   deck: Seq[Card] = Deck.cards,
   discard: List[Card] = Nil,
-  visibleDiscard: Seq[Card] = Nil) {
+  visibleDiscard: Seq[Card] = Nil
+) {
   require(players.length >= 2, "Need at least 2 players")
   require(players.length <= 4, "No more than 4 players")
 }
@@ -24,7 +26,7 @@ object Game {
   /**
    * Returns the player object for the player who's turn it is. Does not change the game state
    */
-  def currentPlayer = State[Game, Player]{g: Game => (g, g.players.head)}
+  def currentPlayer = State[Game, Player] { g: Game => (g, g.players.head) }
 
   /**
    * Cycles the list of players so the player in front is last. Returns the new current player
@@ -32,37 +34,40 @@ object Game {
    * also removed handmaid protection from the front player
    */
   def endTurn = State[Game, Player] {
-    g: Game => {
-      //this would go into an infinate loop if all players are eliminated
-      //that shouldn't ever happen, but just in case, crash instead of looping
-      require(!g.players.forall(_.isEliminated))
-      @annotation.tailrec
-      def cyclePlayerList(l: Seq[Player]): Seq[Player] = {
-        val l2 = l.tail ++ Seq(l.head.copy(isProtected = false))
-        if(!l2.head.isEliminated) l2 else cyclePlayerList(l2)
+    g: Game =>
+      {
+        //this would go into an infinate loop if all players are eliminated
+        //that shouldn't ever happen, but just in case, crash instead of looping
+        require(!g.players.forall(_.isEliminated))
+        @annotation.tailrec
+        def cyclePlayerList(l: Seq[Player]): Seq[Player] = {
+          val l2 = l.tail ++ Seq(l.head.copy(isProtected = false))
+          if (!l2.head.isEliminated) l2 else cyclePlayerList(l2)
+        }
+        val newPlayerList = cyclePlayerList(g.players)
+        (g.copy(players = newPlayerList), newPlayerList.head)
       }
-      val newPlayerList = cyclePlayerList(g.players)
-      (g.copy(players = newPlayerList), newPlayerList.head)
-    }
   }
 
   /**
    * Puts the contents of the deck in random order, and returns the deck
    */
-  def shuffle(r: Random):State[Game, Seq[Card]] = State[Game, Seq[Card]] {
-    g: Game => {
-      val newDeck = r.shuffle(g.deck)
-      (g.copy(deck = newDeck), newDeck)
-    }
+  def shuffle(r: Random): State[Game, Seq[Card]] = State[Game, Seq[Card]] {
+    g: Game =>
+      {
+        val newDeck = r.shuffle(g.deck)
+        (g.copy(deck = newDeck), newDeck)
+      }
   }
 
   /**
    * Starts a new match with the game's players. Throws away the old hand and discard states
    */
   def newMatch = State[Game, Unit] {
-    g: Game => {
-      (Game(g.players.map(p => Player(name = p.name, score = p.score))), {})
-    }
+    g: Game =>
+      {
+        (Game(g.players.map(p => Player(name = p.name, score = p.score))), {})
+      }
   }
 
   /**
@@ -105,9 +110,10 @@ object Game {
    * if None is passed in, jus return the same old game state and none
    */
   def updatePlayer(player: Option[Player]) = State[Game, Option[Player]] {
-    g: Game => player.map(
-      p => (g.copy(players = g.players.updated(g.players.indexWhere(_.name == p.name), p)), Some(p))
-    ).getOrElse((g, None:Option[Player]))
+    g: Game =>
+      player.map(
+        p => (g.copy(players = g.players.updated(g.players.indexWhere(_.name == p.name), p)), Some(p))
+      ).getOrElse((g, None: Option[Player]))
   }
 
   /**
@@ -116,12 +122,13 @@ object Game {
    */
   def playerDiscard(playerName: String, c: Card): State[Game, List[Card]] = {
     getPlayer(playerName).flatMap(_.flatMap({
-        p => if(p.hand.contains(c)) {
+      p =>
+        if (p.hand.contains(c)) {
           Some(updatePlayer(Some(p.copy(hand = p.hand.diff(Seq(c))))).flatMap(_ => discard(c)))
         } else {
           None
         }
-      }).getOrElse(State[Game, List[Card]](g => (g, Nil))) )
+    }).getOrElse(State[Game, List[Card]](g => (g, Nil))))
   }
 
   /**
@@ -137,43 +144,46 @@ object Game {
    * Adds a card to the discard pile, then returns the discard pile
    */
   def discard(c: Card) = State[Game, List[Card]] {
-    g: Game => {
-      val newDiscard = c :: g.discard
-      (g.copy(discard = newDiscard), newDiscard)
-    }
+    g: Game =>
+      {
+        val newDiscard = c :: g.discard
+        (g.copy(discard = newDiscard), newDiscard)
+      }
   }
 
   /**
    * returns the winning player, or None if there isn't one
    */
   def findWinner = State[Game, Option[Player]] {
-    g: Game => {
-      val threshold = g.players.length match {
-        case 2 => 7
-        case 3 => 5
-        case 4 => 4
-        case _ => throw new AssertionError("Game can only have 2-4 players")
+    g: Game =>
+      {
+        val threshold = g.players.length match {
+          case 2 => 7
+          case 3 => 5
+          case 4 => 4
+          case _ => throw new AssertionError("Game can only have 2-4 players")
+        }
+        (g, g.players.find(_.score >= threshold))
       }
-      (g, g.players.find(_.score >= threshold))
-    }
   }
 
   /**
    * begins a new match by restarting the deck, burning, dealing, and drawing a card for the first player
    */
-   //TODO: set a first player for the match
+  //TODO: set a first player for the match
   def startMatch(r: Random) = {
     def burn3VisibleIfTwoPlayer = State[Game, Seq[Card]] {
-      g: Game => if(g.players.length == 2) {
-        def burn3 = for {
-          a <- burnCardVisible
-          b <- burnCardVisible
-          c <- burnCardVisible
-        } yield a ++ b ++ c
-        burn3(g)
-      } else {
-        (g, Nil)
-      }
+      g: Game =>
+        if (g.players.length == 2) {
+          def burn3 = for {
+            a <- burnCardVisible
+            b <- burnCardVisible
+            c <- burnCardVisible
+          } yield a ++ b ++ c
+          burn3(g)
+        } else {
+          (g, Nil)
+        }
     }
     def dealFirstCards = State[Game, Unit] {
       game: Game => (game.players.foldLeft(game)((g, p) => drawCard(p.name).exec(g)), {})
@@ -215,16 +225,17 @@ object Game {
    * Checks if the match had a winner, if it does, return that player. Otherwise return none
    */
   def findMatchWinner = State[Game, Option[Player]] {
-    g: Game => {
-      val remainingPlayers = g.players.filter(!_.isEliminated)
-      if(remainingPlayers.length == 1) {
-        (g, Some(remainingPlayers.head))
-      } else if(g.deck.isEmpty) {
-        (g, Some(remainingPlayers.max(org.romeo.loveletter.game.Player.PlayerOrdering))) //TODO: figure out how to make the ordering implicit
-      } else {
-        (g, None)
+    g: Game =>
+      {
+        val remainingPlayers = g.players.filter(!_.isEliminated)
+        if (remainingPlayers.length == 1) {
+          (g, Some(remainingPlayers.head))
+        } else if (g.deck.isEmpty) {
+          (g, Some(remainingPlayers.max(org.romeo.loveletter.game.Player.PlayerOrdering))) //TODO: figure out how to make the ordering implicit
+        } else {
+          (g, None)
+        }
       }
-    }
   }
 
   /**
@@ -234,9 +245,9 @@ object Game {
   def checkMatchOver(r: Random): State[Game, Option[Player]] = {
     findMatchWinner.flatMap(
       _.map(p => awardPoint(p.name).
-      flatMap(_ => startMatch(r)).
-      map(_ => Some(p): Option[Player])).
-      getOrElse(State.state(None))
+        flatMap(_ => startMatch(r)).
+        map(_ => Some(p): Option[Player])).
+        getOrElse(State.state(None))
     )
   }
 
@@ -253,7 +264,7 @@ object Game {
     getPlayer(playerName).flatMap(playerOption =>
       playerOption.flatMap(p => {
         //this is kind of cheating, but we can tell if the player is the current player by seeing if they have 2 cards in their hand
-        if(p.hand.length == 2 && p.hand.contains(discard)) {
+        if (p.hand.length == 2 && p.hand.contains(discard)) {
           Some(for {
             _ <- playerDiscard(p.name, discard)
             _ <- endTurn
@@ -263,12 +274,12 @@ object Game {
         } else {
           None
         }
-      }).getOrElse(State.state((None, None)))
-    )
+      }).getOrElse(State.state((None, None))))
   }
 }
 
-case class Player(name: String,//name must be unique among players in the game
+case class Player(
+  name: String, //name must be unique among players in the game
   hand: Seq[Card] = Nil,
   isEliminated: Boolean = false,
   isProtected: Boolean = false,
@@ -277,6 +288,6 @@ case class Player(name: String,//name must be unique among players in the game
 
 object Player {
   implicit object PlayerOrdering extends Ordering[Player] {
-    def compare(a:Player, b:Player) = a.hand.max.value compare b.hand.max.value
+    def compare(a: Player, b: Player) = a.hand.max.value compare b.hand.max.value
   }
 }

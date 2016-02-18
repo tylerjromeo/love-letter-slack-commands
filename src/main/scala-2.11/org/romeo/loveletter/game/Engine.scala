@@ -28,10 +28,22 @@ object Game {
 
   /**
    * Cycles the list of players so the player in front is last. Returns the new current player
+   * also skips any eliminated players
+   * also removed handmaid protection from the front player
    */
   def endTurn = State[Game, Player] {
-    //TODO: remove protection from the last player, skip eliminated players
-    g: Game => (g.copy(g.players.tail ++ Seq(g.players.head)), g.players(1))
+    g: Game => {
+      //this would go into an infinate loop if all players are eliminated
+      //that shouldn't ever happen, but just in case, crash instead of looping
+      require(!g.players.forall(_.isEliminated))
+      @annotation.tailrec
+      def cyclePlayerList(l: Seq[Player]): Seq[Player] = {
+        val l2 = l.tail ++ Seq(l.head.copy(isProtected = false))
+        if(!l2.head.isEliminated) l2 else cyclePlayerList(l2)
+      }
+      val newPlayerList = cyclePlayerList(g.players)
+      (g.copy(players = newPlayerList), newPlayerList.head)
+    }
   }
 
   /**
@@ -265,7 +277,6 @@ case class Player(name: String,//name must be unique among players in the game
 
 object Player {
   implicit object PlayerOrdering extends Ordering[Player] {
-    import org.romeo.loveletter.game.Card._
     def compare(a:Player, b:Player) = a.hand.max.value compare b.hand.max.value
   }
 }

@@ -506,6 +506,37 @@ class EngineSpec extends FlatSpec with Matchers {
       Game.getPlayer(players(3)).eval(newGame).get.isProtected should be (false)
   }
 
+  it should "no longer be protected one their turn passes" in {
+      val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+      val game = Game.startMatch(new Random(8344)).exec(Game(players))
+
+      def protectPlayerThenEndTheirTurn = for {
+        p1 <- Game.protectPlayer(players(0), true)
+        _ <- Game.processTurn(p1.get.name, p1.get.hand.head, new Random(7735))
+        p2 <- Game.getPlayer(players(0))
+      } yield (p1.get, p2.get)
+
+      val (protectedPlayer, unprotectedPlayer) = protectPlayerThenEndTheirTurn.eval(game)
+
+      protectedPlayer.isProtected should be (true)
+      unprotectedPlayer.isProtected should be (false)
+  }
+
+  it should "be skipped in the turn order if they are eliminated" in {
+      val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+      val game = Game.startMatch(new Random(26621)).exec(Game(players))
+
+      def eliminateThenSwitchTurns = for {
+        _ <- Game.eliminatePlayer(players(1), true)
+        p1 <- Game.currentPlayer
+        _ <- Game.processTurn(p1.name, p1.hand.head, new Random(236523))
+        p2 <- Game.currentPlayer
+      } yield p2
+
+      val nextPlayer = eliminateThenSwitchTurns.eval(game)
+      nextPlayer.name should be (players(2))
+  }
+
   it should "not change the state of the game if a user not in the game is protected" in {
       val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
       val game = Game(players)

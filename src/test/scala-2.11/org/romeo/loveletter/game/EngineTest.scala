@@ -467,6 +467,20 @@ class EngineSpec extends FlatSpec with Matchers {
       Game.getPlayer(players(3)).eval(newGame).get.isEliminated should be (false)
   }
 
+  it should "have their card discarded if they are eliminated" in {
+      val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+      val game = Game.startMatch(new Random(73705)).exec(Game(players))
+
+      def checkKevinsCardThenEliminate = for {
+        kev <- Game.getPlayer(players(1))
+        _ <- Game.eliminatePlayer(players(1), true)
+      } yield kev.get.hand.head
+
+      val (newGame, kevsCard) = checkKevinsCardThenEliminate(game)
+
+      newGame.discard.head should be (kevsCard)
+  }
+
   it should "not change the state of the game if a user not in the game is eliminated" in {
       val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
       val game = Game(players)

@@ -191,11 +191,12 @@ object Game {
    * sets the player's "eliminated" value to true or false. returns the new player, or None if player doesn't exist
    */
   def eliminatePlayer(playerName: String, isEliminated: Boolean): State[Game, Option[Player]] = {
-    //TODO also put their card into the discard
     for {
       p <- getPlayer(playerName)
       p2 <- updatePlayer(p.map(_.copy(isEliminated = isEliminated)))
-    } yield p2
+      //there shouldn't be a player without a name in the game, so this should do nothing if the card isn't there
+      _ <- playerDiscard(p2.map(_.name).getOrElse(""), p2.flatMap(_.hand.headOption).getOrElse(Guard))
+    } yield p2.map(_.copy(hand = Nil))
   }
 
   /**

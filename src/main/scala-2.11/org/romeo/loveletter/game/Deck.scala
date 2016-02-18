@@ -20,9 +20,8 @@ trait Card {
 }
 
 object Card {
-  implicit object CardOrdering extends Ordering[Card] {
-    def compare(a:Card, b:Card) = a.value compare b.value
-  }
+  implicit def orderingByValue[A <: Card]: Ordering[A] =
+    Ordering.by(a => a.value)
 }
 
 case object Guard extends Card {

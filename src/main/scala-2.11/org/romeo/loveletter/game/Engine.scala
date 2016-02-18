@@ -231,7 +231,7 @@ object Game {
         if (remainingPlayers.length == 1) {
           (g, Some(remainingPlayers.head))
         } else if (g.deck.isEmpty) {
-          (g, Some(remainingPlayers.max(org.romeo.loveletter.game.Player.PlayerOrdering))) //TODO: figure out how to make the ordering implicit
+          (g, Some(remainingPlayers.max))
         } else {
           (g, None)
         }
@@ -285,7 +285,6 @@ case class Player(
   score: Int = 0)
 
 object Player {
-  implicit object PlayerOrdering extends Ordering[Player] {
-    def compare(a: Player, b: Player) = a.hand.max.value compare b.hand.max.value
-  }
+  implicit def orderingByMaxCard[A <: Player]: Ordering[A] =
+    Ordering.by(a => a.hand.max.value)
 }

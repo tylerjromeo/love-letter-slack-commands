@@ -256,9 +256,13 @@ object Game {
    * TODO handle any effects from that discard
    * check to see if any player has won the match, if so iterate to a new match
    * check to see if any player has won the game
-   * return a tuple with an optional winner of the match, and an optional winner of the game
+   * return a tuple with an optional winner of the match, an optional winner of the game, and a message for what happened that turn
    */
-  def processTurn(playerName: String, discard: Card, targetName: Option[String] = None, guess: Option[Card] = None)(implicit r: Random): State[Game, (Option[Player], Option[Player])] = {
+  def processTurn(playerName: String,
+    discard: Card,
+    targetName: Option[String] = None,
+    guess: Option[Card] = None)
+    (implicit r: Random): State[Game, (Option[Player], Option[Player], Either[String, String])] = {
     //just crash if a card requires a target and/or guess and it doesn't have it
     //planning on letting the interface layer validate the requests
     require(!discard.requiresTarget || targetName.isDefined)
@@ -276,11 +280,11 @@ object Game {
             _ <- maybeEndTurn(actionResult.isRight)
             matchWinner <- checkMatchOver(r)
             gameWinner <- findWinner
-          } yield (matchWinner, gameWinner))
+          } yield (matchWinner, gameWinner, actionResult))
         } else {
           None
         }
-      }).getOrElse(State.state((None, None))))
+      }).getOrElse(State.state((None, None, Left("Player not found or not in game")))))
   }
 }
 

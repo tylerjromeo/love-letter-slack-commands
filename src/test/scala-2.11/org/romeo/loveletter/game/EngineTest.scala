@@ -758,4 +758,81 @@ class EngineSpec extends FlatSpec with Matchers {
     matchWinner.get.name should be(players(0))
     gameWinner.get.name should be(players(0))
   }
+
+  behavior of "The guard card"
+
+  it should "eliminate a player if their card is guessed" in {
+    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    implicit val r = new Random(11) //seed 11 gives player 1 a guard, and player 2 a priest
+    val game = Game.startMatch(Some(players(0))).exec(Game(players))
+
+    def playGuardAndGuessRight = for {
+      p <- Game.currentPlayer
+      result <- Game.processTurn(p.name, Guard, Some(players(1)), Some(Priest))
+      target <- Game.getPlayer(players(1))
+    } yield (result._3, target.get)
+
+    val (newGame, (message, target)) = playGuardAndGuessRight(game)
+
+    message.isRight should be (true)
+    target.isEliminated should be (true)
+  }
+
+  it should "not eliminate a player if their card is guessed incorrectly" in {
+    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    implicit val r = new Random(11) //seed 11 gives player 1 a guard, and player 2 a priest
+    val game = Game.startMatch(Some(players(0))).exec(Game(players))
+
+    def playGuardAndGuessRight = for {
+      p <- Game.currentPlayer
+      result <- Game.processTurn(p.name, Guard, Some(players(1)), Some(Baron)) //WRONG
+      target <- Game.getPlayer(players(1))
+    } yield (result._3, target.get)
+
+    val (newGame, (message, target)) = playGuardAndGuessRight(game)
+
+    message.isRight should be (true)
+    target.isEliminated should be (false)
+  }
+
+  it should "fail if guard is guessed" in {
+    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    implicit val r = new Random(11) //seed 11 gives player 1 a guard, and player 2 a priest
+    val game = Game.startMatch(Some(players(0))).exec(Game(players))
+
+    def playGuardAndGuessRight = for {
+      p <- Game.currentPlayer
+      result <- Game.processTurn(p.name, Guard, Some(players(1)), Some(Guard))
+      currentPlayer <- Game.currentPlayer
+    } yield (result._3, currentPlayer)
+
+    val (newGame, (message, currentPlayer)) = playGuardAndGuessRight(game)
+
+    message.isLeft should be (true)
+    currentPlayer.name should be (players(0))
+  }
+
+  it should "fail if a player not in the game is targeted" in {
+    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    implicit val r = new Random(11) //seed 11 gives player 1 a guard, and player 2 a priest
+    val game = Game.startMatch(Some(players(0))).exec(Game(players))
+
+    def playGuardAndGuessRight = for {
+      p <- Game.currentPlayer
+      result <- Game.processTurn(p.name, Guard, Some("BADPLAYER"), Some(Priest)) 
+      currentPlayer <- Game.currentPlayer
+    } yield (result._3, currentPlayer)
+
+    val (newGame, (message, currentPlayer)) = playGuardAndGuessRight(game)
+
+    message.isLeft should be (true)
+    currentPlayer.name should be (players(0))
+  }
+
+  it should "crash if a target or a guess is not supplied" in {
+    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    implicit val r = new Random(432345)
+    an[IllegalArgumentException] should be thrownBy (Game.processTurn(players(0), Guard, None, Some(Priest)).apply(Game(players)))
+    an[IllegalArgumentException] should be thrownBy (Game.processTurn(players(0), Guard, Some(players(2)), None).apply(Game(players)))
+  }
 }

@@ -819,7 +819,7 @@ class EngineSpec extends FlatSpec with Matchers {
 
     def playGuardAndGuessRight = for {
       p <- Game.currentPlayer
-      result <- Game.processTurn(p.name, Guard, Some("BADPLAYER"), Some(Priest)) 
+      result <- Game.processTurn(p.name, Guard, Some("BADPLAYER"), Some(Priest))
       currentPlayer <- Game.currentPlayer
     } yield (result._3, currentPlayer)
 
@@ -834,5 +834,46 @@ class EngineSpec extends FlatSpec with Matchers {
     implicit val r = new Random(432345)
     an[IllegalArgumentException] should be thrownBy (Game.processTurn(players(0), Guard, None, Some(Priest)).apply(Game(players)))
     an[IllegalArgumentException] should be thrownBy (Game.processTurn(players(0), Guard, Some(players(2)), None).apply(Game(players)))
+  }
+
+  behavior of "The priest card"
+
+  it should "show the card of the targeted player in the returned message" in {
+    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    implicit val r = new Random(1) //seed 1 gives player 1 a priest, and player 2 a guard
+    val game = Game.startMatch(Some(players(0))).exec(Game(players))
+
+    def peekAtPlayersCard = for {
+      p <- Game.currentPlayer
+      result <- Game.processTurn(p.name, Priest, Some(players(1)), None)
+    } yield result._3
+
+    val message = peekAtPlayersCard.eval(game)
+
+    message.isRight should be (true)
+    message.merge.contains(Guard.name) should be (true)
+  }
+
+  it should "fail if a player not in the game is targeted" in {
+    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    implicit val r = new Random(1) //seed 1 gives player 1 a priest, and player 2 a guard
+    val game = Game.startMatch(Some(players(0))).exec(Game(players))
+
+    def playGuardAndGuessRight = for {
+      p <- Game.currentPlayer
+      result <- Game.processTurn(p.name, Priest, Some("BADPLAYER"), None)
+      currentPlayer <- Game.currentPlayer
+    } yield (result._3, currentPlayer)
+
+    val (newGame, (message, currentPlayer)) = playGuardAndGuessRight(game)
+
+    message.isLeft should be (true)
+    currentPlayer.name should be (players(0))
+  }
+
+  it should "crash if a guess is not supplied" in {
+    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    implicit val r = new Random(432345)
+    an[IllegalArgumentException] should be thrownBy (Game.processTurn(players(0), Priest, None, None).apply(Game(players)))
   }
 }

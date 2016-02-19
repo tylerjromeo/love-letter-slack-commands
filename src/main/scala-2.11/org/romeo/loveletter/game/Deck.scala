@@ -69,7 +69,13 @@ case object Priest extends Card {
     require(targetName.isDefined)
     Game.getPlayer(targetName.get).flatMap(pOption => {
       pOption.map(p =>
-        State.state(Right(s"${p.name} has a ${p.hand.head}")): State[Game, Either[String, String]]
+          if(p.isProtected) {
+            State.state(Left(s"${p.name} is protected")): State[Game, Either[String, String]]
+          } else if(p.isEliminated) {
+            State.state(Left(s"${p.name} isn't in the match")): State[Game, Either[String, String]]
+          } else {
+            State.state(Right(s"${p.name} has a ${p.hand.head}")): State[Game, Either[String, String]]
+          }
       ).getOrElse(State.state(Left(s"${targetName.get} isn't in the game!"): Either[String, String]))
     })
   }
@@ -86,14 +92,20 @@ case object Baron extends Card {
     require(targetName.isDefined)
     Game.getPlayer(targetName.get).flatMap(pOption => {
       pOption.map(p => {
-        val playerCard = discarder.hand.diff(Seq(Baron)).head //discard hasn't been processed yet, so remove the baron for the comparison
-        val targetCard = p.hand.head
-        if(targetCard.value > playerCard.value) {
-          Game.eliminatePlayer(discarder.name, true).map(_ => Right(s"${discarder.name} has been eliminated and discards a ${playerCard.name}")): State[Game, Either[String, String]]
-        } else if(targetCard.value < playerCard.value) {
-          Game.eliminatePlayer(p.name, true).map(_ => Right(s"${p.name} has been eliminated and discards a ${targetCard.name}")): State[Game, Either[String, String]]
+        if(p.isProtected) {
+          State.state(Left(s"${p.name} is protected")): State[Game, Either[String, String]]
+        } else if(p.isEliminated) {
+          State.state(Left(s"${p.name} isn't in the match")): State[Game, Either[String, String]]
         } else {
-          State.state(Right("It is a tie. No one is eliminated")): State[Game, Either[String, String]]
+          val playerCard = discarder.hand.diff(Seq(Baron)).head //discard hasn't been processed yet, so remove the baron for the comparison
+          val targetCard = p.hand.head
+          if(targetCard.value > playerCard.value) {
+            Game.eliminatePlayer(discarder.name, true).map(_ => Right(s"${discarder.name} has been eliminated and discards a ${playerCard.name}")): State[Game, Either[String, String]]
+          } else if(targetCard.value < playerCard.value) {
+            Game.eliminatePlayer(p.name, true).map(_ => Right(s"${p.name} has been eliminated and discards a ${targetCard.name}")): State[Game, Either[String, String]]
+          } else {
+            State.state(Right("It is a tie. No one is eliminated")): State[Game, Either[String, String]]
+          }
         }
       }).getOrElse(State.state(Left(s"${targetName.get} isn't in the game!"): Either[String, String]))
     })

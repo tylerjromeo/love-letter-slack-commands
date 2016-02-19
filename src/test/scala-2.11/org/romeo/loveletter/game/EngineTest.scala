@@ -899,24 +899,52 @@ class EngineSpec extends FlatSpec with Matchers {
     implicit val r = new Random(1) //seed 1 gives player 1 a priest, and player 2 a guard
     val game = Game.startMatch(Some(players(0))).exec(Game(players))
 
-    def playGuardAndGuessRight = for {
+    def playPriestOnBadplayer = for {
       p <- Game.currentPlayer
       result <- Game.processTurn(p.name, Priest, Some("BADPLAYER"), None)
       currentPlayer <- Game.currentPlayer
     } yield (result._3, currentPlayer)
 
-    val (newGame, (message, currentPlayer)) = playGuardAndGuessRight(game)
+    val (newGame, (message, currentPlayer)) = playPriestOnBadplayer(game)
 
     message.isLeft should be (true)
     currentPlayer.name should be (players(0))
   }
 
   it should "fail if the targeted player is protected" in {
-    pending //TODO
+    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    implicit val r = new Random(1) //seed 1 gives player 1 a priest, and player 2 a guard
+    val game = Game.startMatch(Some(players(0))).exec(Game(players))
+
+    def playPriestOnProtectedPlayer = for {
+      _ <- Game.protectPlayer(players(1), true)
+      p <- Game.currentPlayer
+      result <- Game.processTurn(p.name, Priest, Some(players(1)), None)
+      currentPlayer <- Game.currentPlayer
+    } yield (result._3, currentPlayer)
+
+    val (newGame, (message, currentPlayer)) = playPriestOnProtectedPlayer(game)
+
+    message.isLeft should be (true)
+    currentPlayer.name should be (players(0))
   }
 
   it should "fail if the targeted player is eliminated" in {
-    pending //TODO
+    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    implicit val r = new Random(1) //seed 1 gives player 1 a priest, and player 2 a guard
+    val game = Game.startMatch(Some(players(0))).exec(Game(players))
+
+    def playPriestOnEliminatedPlayer = for {
+      _ <- Game.eliminatePlayer(players(1), true)
+      p <- Game.currentPlayer
+      result <- Game.processTurn(p.name, Priest, Some(players(1)), None)
+      currentPlayer <- Game.currentPlayer
+    } yield (result._3, currentPlayer)
+
+    val (newGame, (message, currentPlayer)) = playPriestOnEliminatedPlayer(game)
+
+    message.isLeft should be (true)
+    currentPlayer.name should be (players(0))
   }
 
   it should "allow the player to play with no effect if every other player is eliminated or protected" in {
@@ -991,11 +1019,39 @@ class EngineSpec extends FlatSpec with Matchers {
   }
 
   it should "fail if the targeted player is protected" in {
-    pending //TODO
+    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    implicit val r = new Random(0) //seed 0 gives player 1 a baron, and player 2 a prince
+    val game = Game.startMatch(Some(players(0))).exec(Game(players))
+
+    def playBaronOnProtectedPlayer = for {
+      _ <- Game.protectPlayer(players(1), true)
+      p <- Game.currentPlayer
+      result <- Game.processTurn(p.name, Baron, Some(players(1)), None)
+      currentPlayer <- Game.currentPlayer
+    } yield (result._3, currentPlayer)
+
+    val (newGame, (message, currentPlayer)) = playBaronOnProtectedPlayer(game)
+
+    message.isLeft should be (true)
+    currentPlayer.name should be (players(0))
   }
 
   it should "fail if the targeted player is eliminated" in {
-    pending //TODO
+    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    implicit val r = new Random(0) //seed 0 gives player 1 a baron, and player 2 a prince
+    val game = Game.startMatch(Some(players(0))).exec(Game(players))
+
+    def playBaronOnEliminatedPlayer = for {
+      _ <- Game.eliminatePlayer(players(1), true)
+      p <- Game.currentPlayer
+      result <- Game.processTurn(p.name, Baron, Some(players(1)), None)
+      currentPlayer <- Game.currentPlayer
+    } yield (result._3, currentPlayer)
+
+    val (newGame, (message, currentPlayer)) = playBaronOnEliminatedPlayer(game)
+
+    message.isLeft should be (true)
+    currentPlayer.name should be (players(0))
   }
 
   it should "allow the player to play with no effect if every other player is eliminated or protected" in {

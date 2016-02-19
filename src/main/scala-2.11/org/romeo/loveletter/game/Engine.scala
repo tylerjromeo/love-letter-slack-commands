@@ -254,11 +254,10 @@ object Game {
         getOrElse(State.state(None)))
   }
 
-  //TODO: add parameter with player's action choice for the card
   /**
    * Iterate through one turn of the game. This function will:
    * if the player name passed in matches the current player, discard that card from their hand (else don't change the state)
-   * TODO handle any effects from that discard
+   * handle any effects from that discard
    * check to see if any player has won the match, if so iterate to a new match
    * check to see if any player has won the game
    * return a tuple with an optional winner of the match, an optional winner of the game, and a message for what happened that turn

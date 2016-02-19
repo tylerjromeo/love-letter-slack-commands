@@ -829,6 +829,18 @@ class EngineSpec extends FlatSpec with Matchers {
     currentPlayer.name should be (players(0))
   }
 
+  it should "fail if the targeted player is protected" in {
+    pending //TODO
+  }
+
+  it should "fail if the targeted player is eliminated" in {
+    pending //TODO
+  }
+
+  it should "allow the player to play with no effect if every other player is eliminated or protected" in {
+    pending //TODO
+  }
+
   it should "crash if a target or a guess is not supplied" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
     implicit val r = new Random(432345)
@@ -871,7 +883,19 @@ class EngineSpec extends FlatSpec with Matchers {
     currentPlayer.name should be (players(0))
   }
 
-  it should "crash if a guess is not supplied" in {
+  it should "fail if the targeted player is protected" in {
+    pending //TODO
+  }
+
+  it should "fail if the targeted player is eliminated" in {
+    pending //TODO
+  }
+
+  it should "allow the player to play with no effect if every other player is eliminated or protected" in {
+    pending //TODO
+  }
+
+  it should "crash if a target is not supplied" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
     implicit val r = new Random(432345)
     an[IllegalArgumentException] should be thrownBy (Game.processTurn(players(0), Priest, None, None).apply(Game(players)))
@@ -938,9 +962,95 @@ class EngineSpec extends FlatSpec with Matchers {
     currentPlayer.name should be (players(0))
   }
 
-  it should "crash if a guess is not supplied" in {
+  it should "fail if the targeted player is protected" in {
+    pending //TODO
+  }
+
+  it should "fail if the targeted player is eliminated" in {
+    pending //TODO
+  }
+
+  it should "allow the player to play with no effect if every other player is eliminated or protected" in {
+    pending //TODO
+  }
+
+  it should "crash if a target is not supplied" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
     implicit val r = new Random(432345)
     an[IllegalArgumentException] should be thrownBy (Game.processTurn(players(0), Baron, None, None).apply(Game(players)))
+  }
+
+  behavior of "The handmaid card"
+
+  it should "cause the player to become protected" in {
+    pending //TODO
+  }
+
+  behavior of "The prince card"
+
+  it should "cause the targeted player to discard their hand" in {
+    pending //TODO
+  }
+
+  it should "fail if the targeted player is protected" in {
+    pending //TODO
+  }
+
+  it should "fail if the targeted player is eliminated" in {
+    pending //TODO
+  }
+
+  it should "only allow the player to target themself if every other player is eliminated or protected" in {
+    pending //TODO
+  }
+
+  it should "fail if a player not in the game is targeted" in {
+    pending //TODO
+  }
+
+  behavior of "The king card"
+
+  it should "fail if the targeted player is protected" in {
+    pending //TODO
+  }
+
+  it should "fail if the targeted player is eliminated" in {
+    pending //TODO
+  }
+
+  it should "allow the player to play with no effect if every other player is eliminated or protected" in {
+    pending //TODO
+  }
+
+  it should "fail if a player not in the game is targeted" in {
+    pending //TODO
+  }
+
+  behavior of "The countess card"
+
+  it should "cause discarding a prince to fail" in {
+    pending //TODO
+  }
+
+  it should "cause discarding a king to fail" in {
+    pending //TODO
+  }
+
+  it should "have no effect when discarded" in {
+    pending //TODO
+  }
+
+  behavior of "The princess card"
+
+  it should "eliminate the player when discarded" in {
+    pending //TODO
+  }
+
+  it should "eliminate the player forced to discard it by the prince" in {
+    pending //TODO
+  }
+
+  it should "eliminate the player when they are forced to discard by their own prince" in {
+    pending //TODO
   }
 }

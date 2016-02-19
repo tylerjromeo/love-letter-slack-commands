@@ -15,6 +15,7 @@ object Deck {
 
 trait Card {
   val value: Int
+  val name: String
   val description: String
   val requiresTarget: Boolean
   val requiresGuess: Boolean
@@ -43,11 +44,11 @@ case object Guard extends Card {
       Game.getPlayer(targetName.get).flatMap(pOption => {
         pOption.map(p =>
           if(p.hand.contains(guess.get)) {
-            Game.eliminatePlayer(p.name, true).map(_ => Right(s"You're right! $p.name is out"): Either[String, String])
+            Game.eliminatePlayer(p.name, true).map(_ => Right(s"You're right! ${p.name} is out"): Either[String, String])
           } else {
-            State.state(Right(s"$p.name does not have a $guess.get.name"): Either[String, String]): State[Game, Either[String, String]]
+            State.state(Right(s"${p.name} does not have a ${guess.get.name}"): Either[String, String]): State[Game, Either[String, String]]
           }
-        ).getOrElse(State.state(Left(s"$targetName.get isn't in the game!"): Either[String, String]))
+        ).getOrElse(State.state(Left(s"${targetName.get} isn't in the game!"): Either[String, String]))
       })
     }
   }
@@ -64,8 +65,8 @@ case object Priest extends Card {
     require(targetName.isDefined)
     Game.getPlayer(targetName.get).flatMap(pOption => {
       pOption.map(p =>
-        State.state(Right(s"$targetName has a $p.hand.head")): State[Game, Either[String, String]]
-      ).getOrElse(State.state(Left(s"$targetName.get isn't in the game!"): Either[String, String]))
+        State.state(Right(s"${p.name} has a ${p.hand.head}")): State[Game, Either[String, String]]
+      ).getOrElse(State.state(Left(s"${targetName.get} isn't in the game!"): Either[String, String]))
     })
   }
 }
@@ -84,13 +85,13 @@ case object Baron extends Card {
         val playerCard = discarder.hand.diff(Seq(Baron)).head //discard hasn't been processed yet, so remove the baron for the comparison
         val targetCard = p.hand.head
         if(targetCard.value > playerCard.value) {
-          Game.eliminatePlayer(discarder.name, true).map(_ => Right(s"$discarder.name has been eliminated and discards a $playerCard.name")): State[Game, Either[String, String]]
+          Game.eliminatePlayer(discarder.name, true).map(_ => Right(s"${discarder.name} has been eliminated and discards a ${playerCard.name}")): State[Game, Either[String, String]]
         } else if(targetCard.value < playerCard.value) {
-          Game.eliminatePlayer(p.name, true).map(_ => Right(s"$p.name has been eliminated and discards a $targetCard.name")): State[Game, Either[String, String]]
+          Game.eliminatePlayer(p.name, true).map(_ => Right(s"${p.name} has been eliminated and discards a ${targetCard.name}")): State[Game, Either[String, String]]
         } else {
           State.state(Right("It is a tie. No one is eliminated")): State[Game, Either[String, String]]
         }
-      }).getOrElse(State.state(Left(s"$targetName.get isn't in the game!"): Either[String, String]))
+      }).getOrElse(State.state(Left(s"${targetName.get} isn't in the game!"): Either[String, String]))
     })
   }
 }

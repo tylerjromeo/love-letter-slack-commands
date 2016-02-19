@@ -870,11 +870,17 @@ class EngineSpec extends FlatSpec with Matchers {
     pending //TODO
   }
 
-  it should "crash if a target or a guess is not supplied" in {
+  it should "fail if a target or a guess is not supplied" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
     implicit val r = new Random(432345)
-    an[IllegalArgumentException] should be thrownBy (Game.processTurn(players(0), Guard, None, Some(Priest)).apply(Game(players)))
-    an[IllegalArgumentException] should be thrownBy (Game.processTurn(players(0), Guard, Some(players(2)), None).apply(Game(players)))
+    val game = Game(players)
+    val (game1, result1) = Game.processTurn(players(0), Guard, None, Some(Priest)).apply(game)
+    game1 should be (game)
+    result1._3.isLeft should be (true)
+
+    val (game2, result2) = Game.processTurn(players(0), Guard, Some(players(2)), None).apply(game)
+    game2 should be (game)
+    result2._3.isLeft should be (true)
   }
 
   behavior of "The priest card"
@@ -952,10 +958,13 @@ class EngineSpec extends FlatSpec with Matchers {
     pending //TODO
   }
 
-  it should "crash if a target is not supplied" in {
+  it should "fail if a target is not supplied" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
     implicit val r = new Random(432345)
-    an[IllegalArgumentException] should be thrownBy (Game.processTurn(players(0), Priest, None, None).apply(Game(players)))
+    val game = Game(players)
+    val (game1, result1) = Game.processTurn(players(0), Priest, None, None).apply(game)
+    game1 should be (game)
+    result1._3.isLeft should be (true)
   }
 
   behavior of "The baron card"
@@ -1059,10 +1068,13 @@ class EngineSpec extends FlatSpec with Matchers {
     pending //TODO
   }
 
-  it should "crash if a target is not supplied" in {
+  it should "fail if a target is not supplied" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
     implicit val r = new Random(432345)
-    an[IllegalArgumentException] should be thrownBy (Game.processTurn(players(0), Baron, None, None).apply(Game(players)))
+    val game = Game(players)
+    val (game1, result1) = Game.processTurn(players(0), Baron, None, None).apply(game)
+    game1 should be (game)
+    result1._3.isLeft should be (true)
   }
 
   behavior of "The handmaid card"

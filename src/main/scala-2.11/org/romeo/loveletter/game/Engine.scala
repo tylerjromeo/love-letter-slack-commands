@@ -270,8 +270,12 @@ object Game {
     (implicit r: Random): State[Game, (Option[Player], Option[Player], Either[String, String])] = {
     //just crash if a card requires a target and/or guess and it doesn't have it
     //planning on letting the interface layer validate the requests
-    require(!discard.requiresTarget || targetName.isDefined)
-    require(!discard.requiresGuess || guess.isDefined)
+    if(discard.requiresTarget && targetName.isEmpty) {
+      return State.state((None, None, Left(s"${discard.name} requires a target"))): State[Game, (Option[Player], Option[Player], Either[String, String])]
+    }
+    if(discard.requiresGuess && guess.isEmpty) {
+      return State.state((None, None, Left(s"${discard.name} requires a guess"))): State[Game, (Option[Player], Option[Player], Either[String, String])]
+    }
 
     def maybeEndTurn(b: Boolean):State[Game, _] = if(b) endTurn else State.state(None)
 

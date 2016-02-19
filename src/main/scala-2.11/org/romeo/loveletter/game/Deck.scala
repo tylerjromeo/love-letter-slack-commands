@@ -136,7 +136,9 @@ case object Handmaid extends Card {
   val requiresTarget: Boolean = false
   val requiresGuess: Boolean = false
   val privateResponse: Boolean = false
-  override def doAction(discarder: Player, targetName: Option[String] = None, guess: Option[Card] = None): State[Game, Either[String, String]] = State.state(Left("not yet implemented"))
+  override def doAction(discarder: Player, targetName: Option[String] = None, guess: Option[Card] = None): State[Game, Either[String, String]] = {
+    Game.protectPlayer(discarder.name, true).map(_ => Right(s"${discarder.name} is protected")) //HAMMAID
+  }
 }
 
 case object Prince extends Card {

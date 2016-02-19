@@ -1127,7 +1127,21 @@ println(protectOrEliminateEveryoneThenPlay.exec(game))
   behavior of "The handmaid card"
 
   it should "cause the player to become protected" in {
-    pending //TODO
+    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    implicit val r = new Random(5) //seed 5 gives player 1 a handmaid
+    val game = Game.startMatch(Some(players(0))).exec(Game(players))
+
+    def playHandmaid = for {
+      p <- Game.currentPlayer
+      result <- Game.processTurn(p.name, Handmaid, None, None)
+      p1 <- Game.getPlayer(players(0))
+    } yield (p1.get, result._3)
+
+    val (protectedPlayer, message) = playHandmaid.eval(game)
+
+    message.isRight should be (true)
+    protectedPlayer.isProtected should be (true)
+
   }
 
   behavior of "The prince card"

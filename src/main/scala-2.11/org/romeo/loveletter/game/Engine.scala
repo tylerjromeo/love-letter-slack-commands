@@ -29,22 +29,27 @@ object Game {
   /**
    * Cycles the list of players so the player in front is last. Returns the new current player
    * also skips any eliminated players
-   * also removed handmaid protection from the front player
+   * also removed handmaid protection from the new front player
    */
-  def endTurn = State[Game, Player] {
-    g: Game =>
+  def endTurn = {
+    def rotatePlayerOrder = State[Game, Player] { g: Game =>
       {
         //this would go into an infinate loop if all players are eliminated
         //that shouldn't ever happen, but just in case, crash instead of looping
         require(!g.players.forall(_.isEliminated))
         @annotation.tailrec
         def cyclePlayerList(l: Seq[Player]): Seq[Player] = {
-          val l2 = l.tail ++ Seq(l.head.copy(isProtected = false))
+          val l2 = l.tail ++ Seq(l.head)
           if (!l2.head.isEliminated) l2 else cyclePlayerList(l2)
         }
         val newPlayerList = cyclePlayerList(g.players)
         (g.copy(players = newPlayerList), newPlayerList.head)
       }
+    }
+    for {
+      p <- rotatePlayerOrder
+      p2 <- protectPlayer(p.name, false)
+    } yield p2.get
   }
 
   /**

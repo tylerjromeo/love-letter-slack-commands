@@ -529,18 +529,19 @@ class EngineSpec extends FlatSpec with Matchers {
     Game.getPlayer(players(3)).eval(newGame).get.isProtected should be(false)
   }
 
-  it should "no longer be protected one their turn passes" in {
+  it should "no longer be protected one their turn starts" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
     implicit val r = new Random(24) //Use 24 as a seed for tests that need to ignore card effects. This will give the first player a countess
     val game = Game.startMatch(Some(players(0))).exec(Game(players))
 
-    def protectPlayerThenEndTheirTurn = for {
-      p1 <- Game.protectPlayer(players(0), true)
-      _ <- Game.processTurn(p1.get.name, p1.get.hand.head)
-      p2 <- Game.getPlayer(players(0))
-    } yield (p1.get, p2.get)
+    def protectPlayerThenStartTheirTurn = for {
+      p1 <- Game.currentPlayer
+      p2 <- Game.protectPlayer(players(1), true)
+      _ <- Game.processTurn(p1.name, p1.hand.head)
+      p3 <- Game.getPlayer(players(1))
+    } yield (p2.get, p3.get)
 
-    val (protectedPlayer, unprotectedPlayer) = protectPlayerThenEndTheirTurn.eval(game)
+    val (protectedPlayer, unprotectedPlayer) = protectPlayerThenStartTheirTurn.eval(game)
 
     protectedPlayer.isProtected should be(true)
     unprotectedPlayer.isProtected should be(false)

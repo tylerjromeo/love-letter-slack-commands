@@ -817,24 +817,52 @@ class EngineSpec extends FlatSpec with Matchers {
     implicit val r = new Random(11) //seed 11 gives player 1 a guard, and player 2 a priest
     val game = Game.startMatch(Some(players(0))).exec(Game(players))
 
-    def playGuardAndGuessRight = for {
+    def playGuardAndGuessBadplayer = for {
       p <- Game.currentPlayer
       result <- Game.processTurn(p.name, Guard, Some("BADPLAYER"), Some(Priest))
       currentPlayer <- Game.currentPlayer
     } yield (result._3, currentPlayer)
 
-    val (newGame, (message, currentPlayer)) = playGuardAndGuessRight(game)
+    val (newGame, (message, currentPlayer)) = playGuardAndGuessBadplayer(game)
 
     message.isLeft should be (true)
     currentPlayer.name should be (players(0))
   }
 
   it should "fail if the targeted player is protected" in {
-    pending //TODO
+    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    implicit val r = new Random(11) //seed 11 gives player 1 a guard, and player 2 a priest
+    val game = Game.startMatch(Some(players(0))).exec(Game(players))
+
+    def protectThenPlayGuard = for {
+      _ <- Game.protectPlayer(players(1), true)
+      p <- Game.currentPlayer
+      result <- Game.processTurn(p.name, Guard, Some(players(1)), Some(Priest))
+      currentPlayer <- Game.currentPlayer
+    } yield (result._3, currentPlayer)
+
+    val (message, currentPlayer) = protectThenPlayGuard.eval(game)
+
+    message.isLeft should be (true)
+    currentPlayer.name should be (players(0))
   }
 
   it should "fail if the targeted player is eliminated" in {
-    pending //TODO
+    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    implicit val r = new Random(11) //seed 11 gives player 1 a guard, and player 2 a priest
+    val game = Game.startMatch(Some(players(0))).exec(Game(players))
+
+    def protectThenPlayGuard = for {
+      _ <- Game.eliminatePlayer(players(1), true)
+      p <- Game.currentPlayer
+      result <- Game.processTurn(p.name, Guard, Some(players(1)), Some(Priest))
+      currentPlayer <- Game.currentPlayer
+    } yield (result._3, currentPlayer)
+
+    val (message, currentPlayer) = protectThenPlayGuard.eval(game)
+
+    message.isLeft should be (true)
+    currentPlayer.name should be (players(0))
   }
 
   it should "allow the player to play with no effect if every other player is eliminated or protected" in {

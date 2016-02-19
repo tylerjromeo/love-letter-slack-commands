@@ -43,7 +43,11 @@ case object Guard extends Card {
     } else {
       Game.getPlayer(targetName.get).flatMap(pOption => {
         pOption.map(p =>
-          if(p.hand.contains(guess.get)) {
+          if(p.isProtected) {
+            State.state(Left(s"${p.name} is protected")): State[Game, Either[String, String]]
+          } else if(p.isEliminated) {
+            State.state(Left(s"${p.name} isn't in the match")): State[Game, Either[String, String]]
+          } else if(p.hand.contains(guess.get)) {
             Game.eliminatePlayer(p.name, true).map(_ => Right(s"You're right! ${p.name} is out"): Either[String, String])
           } else {
             State.state(Right(s"${p.name} does not have a ${guess.get.name}"): Either[String, String]): State[Game, Either[String, String]]

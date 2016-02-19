@@ -36,8 +36,13 @@ case object Guard extends Card {
   val requiresGuess: Boolean = true
   val privateResponse: Boolean = false
   override def doAction(discarder: Player, targetName: Option[String], guess: Option[Card]): State[Game, Either[String, String]] = {
-    require(targetName.isDefined)
-    require(guess.isDefined)
+    if(targetName.isEmpty || guess.isEmpty) {
+      return Game.isEveryoneElseProtectedOrEliminated.map(if(_) {
+          Right(s"Everyone is safe, $name discarded with no effect")
+        } else {
+          Left(s"A target and guess must be specified")
+        })
+    }
     if(guess.get == Guard) {
       State.state(Left("You can't guess Guard"))
     } else {
@@ -66,7 +71,13 @@ case object Priest extends Card {
   val requiresGuess: Boolean = false
   val privateResponse: Boolean = true
   override def doAction(discarder: Player, targetName: Option[String], guess: Option[Card] = None): State[Game, Either[String, String]] = {
-    require(targetName.isDefined)
+    if(targetName.isEmpty) {
+      return Game.isEveryoneElseProtectedOrEliminated.map(if(_) {
+          Right(s"Everyone is safe, $name discarded with no effect")
+        } else {
+          Left(s"A target and guess must be specified")
+        })
+    }
     Game.getPlayer(targetName.get).flatMap(pOption => {
       pOption.map(p =>
           if(p.isProtected) {
@@ -89,7 +100,13 @@ case object Baron extends Card {
   val requiresGuess: Boolean = false
   val privateResponse: Boolean = false
   override def doAction(discarder: Player, targetName: Option[String], guess: Option[Card] = None): State[Game, Either[String, String]] = {
-    require(targetName.isDefined)
+    if(targetName.isEmpty) {
+      return Game.isEveryoneElseProtectedOrEliminated.map(if(_) {
+          Right(s"Everyone is safe, $name discarded with no effect")
+        } else {
+          Left(s"A target and guess must be specified")
+        })
+    }
     Game.getPlayer(targetName.get).flatMap(pOption => {
       pOption.map(p => {
         if(p.isProtected) {

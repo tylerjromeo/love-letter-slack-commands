@@ -867,7 +867,24 @@ class EngineSpec extends FlatSpec with Matchers {
   }
 
   it should "allow the player to play with no effect if every other player is eliminated or protected" in {
-    pending //TODO
+    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    implicit val r = new Random(11) //seed 11 gives player 1 a guard, and player 2 a priest
+    val game = Game.startMatch(Some(players(0))).exec(Game(players))
+
+    def protectOrEliminateEveryoneThenPlay = for {
+      _ <- Game.protectPlayer(players(1), true)
+      _ <- Game.eliminatePlayer(players(2), true)
+      _ <- Game.protectPlayer(players(3), true)
+      result <- Game.processTurn(players(0), Guard, None, None)
+      p <- Game.currentPlayer
+    } yield (p, result._3)
+
+println(protectOrEliminateEveryoneThenPlay.exec(game))
+    val (nextPlayer, result) = protectOrEliminateEveryoneThenPlay.eval(game)
+    println(result.merge)
+    result.isRight should be (true)
+    nextPlayer.name should be (players(1))
+
   }
 
   it should "fail if a target or a guess is not supplied" in {
@@ -955,7 +972,22 @@ class EngineSpec extends FlatSpec with Matchers {
   }
 
   it should "allow the player to play with no effect if every other player is eliminated or protected" in {
-    pending //TODO
+    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    implicit val r = new Random(1) //seed 1 gives player 1 a priest, and player 2 a guard
+    val game = Game.startMatch(Some(players(0))).exec(Game(players))
+
+    def protectOrEliminateEveryoneThenPlay = for {
+      _ <- Game.protectPlayer(players(1), true)
+      _ <- Game.eliminatePlayer(players(2), true)
+      _ <- Game.protectPlayer(players(3), true)
+      result <- Game.processTurn(players(0), Priest, None, None)
+      p <- Game.currentPlayer
+    } yield (p, result._3)
+
+    val (nextPlayer, result) = protectOrEliminateEveryoneThenPlay.eval(game)
+    result.isRight should be (true)
+    nextPlayer.name should be (players(1))
+
   }
 
   it should "fail if a target is not supplied" in {
@@ -1065,7 +1097,22 @@ class EngineSpec extends FlatSpec with Matchers {
   }
 
   it should "allow the player to play with no effect if every other player is eliminated or protected" in {
-    pending //TODO
+    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    implicit val r = new Random(0) //seed 0 gives player 1 a baron, and player 2 a prince
+    val game = Game.startMatch(Some(players(0))).exec(Game(players))
+
+    def protectOrEliminateEveryoneThenPlay = for {
+      _ <- Game.protectPlayer(players(1), true)
+      _ <- Game.eliminatePlayer(players(2), true)
+      _ <- Game.protectPlayer(players(3), true)
+      result <- Game.processTurn(players(0), Baron, None, None)
+      p <- Game.currentPlayer
+    } yield (p, result._3)
+
+    val (nextPlayer, result) = protectOrEliminateEveryoneThenPlay.eval(game)
+    result.isRight should be (true)
+    nextPlayer.name should be (players(1))
+
   }
 
   it should "fail if a target is not supplied" in {

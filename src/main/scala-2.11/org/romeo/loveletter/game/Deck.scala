@@ -77,7 +77,22 @@ case object Baron extends Card {
   val requiresTarget: Boolean = true
   val requiresGuess: Boolean = false
   val privateResponse: Boolean = false
-  override def doAction(discarder: Player, targetName: Option[String], guess: Option[Card] = None): State[Game, Either[String, String]] = State.state(Left("not yet implemented"))
+  override def doAction(discarder: Player, targetName: Option[String], guess: Option[Card] = None): State[Game, Either[String, String]] = {
+    require(targetName.isDefined)
+    Game.getPlayer(targetName.get).flatMap(pOption => {
+      pOption.map(p => {
+        val playerCard = discarder.hand.diff(Seq(Baron)).head //discard hasn't been processed yet, so remove the baron for the comparison
+        val targetCard = p.hand.head
+        if(targetCard.value > playerCard.value) {
+          Game.eliminatePlayer(discarder.name, true).map(_ => Right(s"$discarder.name has been eliminated and discards a $playerCard.name")): State[Game, Either[String, String]]
+        } else if(targetCard.value < playerCard.value) {
+          Game.eliminatePlayer(p.name, true).map(_ => Right(s"$p.name has been eliminated and discards a $targetCard.name")): State[Game, Either[String, String]]
+        } else {
+          State.state(Right("It is a tie. No one is eliminated")): State[Game, Either[String, String]]
+        }
+      }).getOrElse(State.state(Left(s"$targetName.get isn't in the game!"): Either[String, String]))
+    })
+  }
 }
 
 case object Handmaid extends Card {

@@ -876,4 +876,71 @@ class EngineSpec extends FlatSpec with Matchers {
     implicit val r = new Random(432345)
     an[IllegalArgumentException] should be thrownBy (Game.processTurn(players(0), Priest, None, None).apply(Game(players)))
   }
+
+  behavior of "The baron card"
+
+  it should "eliminate the target player if your card is higher than theirs" in {
+    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    implicit val r = new Random(12) //seed 0 gives player 1 a baron and a countess, and player 2 a guard
+    val game = Game.startMatch(Some(players(0))).exec(Game(players))
+
+    val (newGame, (_, _, response)) = Game.processTurn(players(0), Baron, Some(players(1)), None).apply(game)
+
+    response.isRight should be (true)
+    Game.getPlayer(players(0)).eval(newGame).get.isEliminated should be (false)
+    Game.getPlayer(players(1)).eval(newGame).get.isEliminated should be (true)
+    Game.currentPlayer.eval(newGame).name should be (players(2))
+
+  }
+
+  it should "eliminate you if the target players card is higher than yours" in {
+    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    implicit val r = new Random(0) //seed 0 gives player 1 a baron and a priest, and player 2 a prince
+    val game = Game.startMatch(Some(players(0))).exec(Game(players))
+
+    val (newGame, (_, _, response)) = Game.processTurn(players(0), Baron, Some(players(1)), None).apply(game)
+
+    response.isRight should be (true)
+    Game.getPlayer(players(0)).eval(newGame).get.isEliminated should be (true)
+    Game.getPlayer(players(1)).eval(newGame).get.isEliminated should be (false)
+    Game.currentPlayer.eval(newGame).name should be (players(1))
+
+  }
+
+  it should "eliminate nobody if you have the same card" in {
+    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    implicit val r = new Random(23) //seed 0 gives player 1 a baron and a handmaid, and player 2 a handmaid
+    val game = Game.startMatch(Some(players(0))).exec(Game(players))
+
+    val (newGame, (_, _, response)) = Game.processTurn(players(0), Baron, Some(players(1)), None).apply(game)
+
+    response.isRight should be (true)
+    Game.getPlayer(players(0)).eval(newGame).get.isEliminated should be (false)
+    Game.getPlayer(players(1)).eval(newGame).get.isEliminated should be (false)
+    Game.currentPlayer.eval(newGame).name should be (players(1))
+
+  }
+
+  it should "fail if a player not in the game is targeted" in {
+    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    implicit val r = new Random(0) //seed 0 gives player 1 a baron, and player 2 a prince
+    val game = Game.startMatch(Some(players(0))).exec(Game(players))
+
+    def playGuardAndGuessRight = for {
+      p <- Game.currentPlayer
+      result <- Game.processTurn(p.name, Baron, Some("BADPLAYER"), None)
+      currentPlayer <- Game.currentPlayer
+    } yield (result._3, currentPlayer)
+
+    val (newGame, (message, currentPlayer)) = playGuardAndGuessRight(game)
+
+    message.isLeft should be (true)
+    currentPlayer.name should be (players(0))
+  }
+
+  it should "crash if a guess is not supplied" in {
+    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    implicit val r = new Random(432345)
+    an[IllegalArgumentException] should be thrownBy (Game.processTurn(players(0), Baron, None, None).apply(Game(players)))
+  }
 }

@@ -879,9 +879,7 @@ class EngineSpec extends FlatSpec with Matchers {
       p <- Game.currentPlayer
     } yield (p, result._3)
 
-println(protectOrEliminateEveryoneThenPlay.exec(game))
     val (nextPlayer, result) = protectOrEliminateEveryoneThenPlay.eval(game)
-    println(result.merge)
     result.isRight should be (true)
     nextPlayer.name should be (players(1))
 
@@ -1048,13 +1046,13 @@ println(protectOrEliminateEveryoneThenPlay.exec(game))
     implicit val r = new Random(0) //seed 0 gives player 1 a baron, and player 2 a prince
     val game = Game.startMatch(Some(players(0))).exec(Game(players))
 
-    def playGuardAndGuessRight = for {
+    def playBaronOnBadPlayer = for {
       p <- Game.currentPlayer
       result <- Game.processTurn(p.name, Baron, Some("BADPLAYER"), None)
       currentPlayer <- Game.currentPlayer
     } yield (result._3, currentPlayer)
 
-    val (newGame, (message, currentPlayer)) = playGuardAndGuessRight(game)
+    val (newGame, (message, currentPlayer)) = playBaronOnBadPlayer(game)
 
     message.isLeft should be (true)
     currentPlayer.name should be (players(0))
@@ -1147,23 +1145,100 @@ println(protectOrEliminateEveryoneThenPlay.exec(game))
   behavior of "The prince card"
 
   it should "cause the targeted player to discard their hand" in {
-    pending //TODO
+    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    implicit val r = new Random(7) //seed 7 gives player 1 a prince, and player 2 a guard
+    val game = Game.startMatch(Some(players(0))).exec(Game(players))
+
+    def playPrinceOnPlayer = for {
+      p <- Game.currentPlayer
+      result <- Game.processTurn(p.name, Prince, Some(players(1)), None)
+      currentPlayer <- Game.currentPlayer
+    } yield (result._3, currentPlayer)
+
+    val (newGame, (message, currentPlayer)) = playPrinceOnPlayer(game)
+
+    message.isRight should be (true)
+    currentPlayer.name should be (players(1))
+    newGame.discard should contain (Prince)
+    newGame.discard should contain (Guard)
   }
 
   it should "fail if the targeted player is protected" in {
-    pending //TODO
+    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    implicit val r = new Random(7) //seed 7 gives player 1 a prince, and player 2 a guard
+    val game = Game.startMatch(Some(players(0))).exec(Game(players))
+
+    def playPrinceOnProtectedPlayer = for {
+      _ <- Game.protectPlayer(players(1), true)
+      p <- Game.currentPlayer
+      result <- Game.processTurn(p.name, Prince, Some(players(1)), None)
+      currentPlayer <- Game.currentPlayer
+    } yield (result._3, currentPlayer)
+
+    val (newGame, (message, currentPlayer)) = playPrinceOnProtectedPlayer(game)
+
+    message.isLeft should be (true)
+    currentPlayer.name should be (players(0))
   }
 
   it should "fail if the targeted player is eliminated" in {
-    pending //TODO
+    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    implicit val r = new Random(7) //seed 7 gives player 1 a prince, and player 2 a guard
+    val game = Game.startMatch(Some(players(0))).exec(Game(players))
+
+    def playPrinceOnEliminatedPlayer = for {
+      _ <- Game.eliminatePlayer(players(1), true)
+      p <- Game.currentPlayer
+      result <- Game.processTurn(p.name, Prince, Some(players(1)), None)
+      currentPlayer <- Game.currentPlayer
+    } yield (result._3, currentPlayer)
+
+    val (newGame, (message, currentPlayer)) = playPrinceOnEliminatedPlayer(game)
+
+    message.isLeft should be (true)
+    currentPlayer.name should be (players(0))
   }
 
-  it should "only allow the player to target themself if every other player is eliminated or protected" in {
-    pending //TODO
+  it should "force the player to target themself if every other player is eliminated or protected" in {
+    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    implicit val r = new Random(7) //seed 7 gives player 1 a prince and a guard
+    val game = Game.startMatch(Some(players(0))).exec(Game(players))
+    println(game)
+
+    def protectOrEliminateEveryoneThenPlay = for {
+      _ <- Game.protectPlayer(players(1), true)
+      _ <- Game.protectPlayer(players(2), true)
+      _ <- Game.protectPlayer(players(3), true)
+      result <- Game.processTurn(players(0), Prince, None, None)
+      p2 <- Game.currentPlayer
+      result2 <- Game.processTurn(players(0), Prince, Some(players(0)), None)
+      p <- Game.currentPlayer
+    } yield (p, result._3, result2._3, p2)
+
+    val (newGame, (nextPlayer, result, result2, p2)) = protectOrEliminateEveryoneThenPlay(game)
+    println(newGame)
+    result.isLeft should be (true)
+    result2.isRight should be (true)
+    nextPlayer.name should be (players(1))
+    newGame.discard should contain only (Guard, Prince)
+
   }
 
   it should "fail if a player not in the game is targeted" in {
-    pending //TODO
+    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    implicit val r = new Random(7) //seed 7 gives player 1 a prince
+    val game = Game.startMatch(Some(players(0))).exec(Game(players))
+
+    def playPrinceOnBadPlayer = for {
+      p <- Game.currentPlayer
+      result <- Game.processTurn(p.name, Prince, Some("BADPLAYER"), None)
+      currentPlayer <- Game.currentPlayer
+    } yield (result._3, currentPlayer)
+
+    val (newGame, (message, currentPlayer)) = playPrinceOnBadPlayer(game)
+
+    message.isLeft should be (true)
+    currentPlayer.name should be (players(0))
   }
 
   behavior of "The king card"

@@ -268,6 +268,7 @@ object Game {
     guess: Option[Card] = None)
     (implicit r: Random): State[Game, (Option[Player], Option[Player], Either[String, String])] = {
 
+    def maybeDiscard(b: Boolean, name: String, card: Card):State[Game, _] = if(b) playerDiscard(name, card) else State.state(None)
     def maybeEndTurn(b: Boolean):State[Game, _] = if(b) endTurn else State.state(None)
 
     getPlayer(playerName).flatMap(playerOption =>
@@ -275,8 +276,8 @@ object Game {
         //this is kind of cheating, but we can tell if the player is the current player by seeing if they have 2 cards in their hand
         if (p.hand.length == 2 && p.hand.contains(discard)) {
           Some(for {
-            _ <- playerDiscard(p.name, discard)
             actionResult <- discard.doAction(p, targetName, guess)
+            _ <- maybeDiscard(actionResult.isRight, p.name, discard)
             _ <- maybeEndTurn(actionResult.isRight)
             matchWinner <- checkMatchOver(r)
             gameWinner <- findWinner

@@ -75,7 +75,7 @@ case object Priest extends Card {
       return Game.isEveryoneElseProtectedOrEliminated.map(if(_) {
           Right(s"Everyone is safe, $name discarded with no effect")
         } else {
-          Left(s"A target and guess must be specified")
+          Left(s"A target must be specified")
         })
     }
     Game.getPlayer(targetName.get).flatMap(pOption => {
@@ -104,7 +104,7 @@ case object Baron extends Card {
       return Game.isEveryoneElseProtectedOrEliminated.map(if(_) {
           Right(s"Everyone is safe, $name discarded with no effect")
         } else {
-          Left(s"A target and guess must be specified")
+          Left(s"A target must be specified")
         })
     }
     Game.getPlayer(targetName.get).flatMap(pOption => {
@@ -148,7 +148,28 @@ case object Prince extends Card {
   val requiresTarget: Boolean = true
   val requiresGuess: Boolean = false
   val privateResponse: Boolean = false
-  override def doAction(discarder: Player, targetName: Option[String], guess: Option[Card] = None): State[Game, Either[String, String]] = State.state(Left("not yet implemented"))
+  override def doAction(discarder: Player, targetName: Option[String], guess: Option[Card] = None): State[Game, Either[String, String]] = {
+    if(targetName.isEmpty) {
+      return State.state(Left(s"A target must be specified")): State[Game, Either[String, String]]
+    }
+    Game.getPlayer(targetName.get).flatMap(pOption => {
+      pOption.map(p =>
+          if(p.isProtected) {
+            State.state(Left(s"${p.name} is protected")): State[Game, Either[String, String]]
+          } else if(p.isEliminated) {
+            State.state(Left(s"${p.name} isn't in the match")): State[Game, Either[String, String]]
+          } else {
+            //if you call this on yourself, you still have a prince in your hand, so remove that
+            def getCardToDiscard(hand: Seq[Card]) = (if(hand.length > 1) hand.diff(Seq(Prince)) else hand).head
+            def discardThenDraw: State[Game, Either[String, String]] = for {
+              discard <- Game.playerDiscard(p.name, getCardToDiscard(p.hand))
+              _ <- Game.drawCard(p.name)
+            } yield Right(s"${p.name} forced to discard a ${discard.head}")
+            discardThenDraw
+          }
+      ).getOrElse(State.state(Left(s"${targetName.get} isn't in the game!"): Either[String, String]))
+    })
+  }
 }
 
 case object King extends Card {

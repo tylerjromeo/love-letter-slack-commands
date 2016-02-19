@@ -28,6 +28,7 @@ object Card {
 
 case object Guard extends Card {
   val value = 1
+  val name = "Guard"
   val description = "Name a non-Guard card and choose another player. If that player has that card, he or she is out of the round."
   val requiresTarget: Boolean = true
   val requiresGuess: Boolean = true
@@ -52,6 +53,7 @@ case object Guard extends Card {
 
 case object Priest extends Card {
   val value = 2
+  val name = "Priest"
   val description = "Look at another player's hand."
   val requiresTarget: Boolean = true
   val requiresGuess: Boolean = false
@@ -60,6 +62,7 @@ case object Priest extends Card {
 
 case object Baron extends Card {
   val value = 3
+  val name = "Baron"
   val description = "You and another player secretly compare hands. The player with the lower value is out of the round."
   val requiresTarget: Boolean = true
   val requiresGuess: Boolean = false
@@ -68,6 +71,7 @@ case object Baron extends Card {
 
 case object Handmaid extends Card {
   val value = 4
+  val name = "Handmaid"
   val description = "Until your next turn, ignore all effects from other player's cards."
   val requiresTarget: Boolean = false
   val requiresGuess: Boolean = false
@@ -76,6 +80,7 @@ case object Handmaid extends Card {
 
 case object Prince extends Card {
   val value = 5
+  val name = "Prince"
   val description = "Choose any player (inluding yourself) ato discard his or her hand and draw a new card."
   val requiresTarget: Boolean = true
   val requiresGuess: Boolean = false
@@ -84,6 +89,7 @@ case object Prince extends Card {
 
 case object King extends Card {
   val value = 6
+  val name = "King"
   val description = "Trade hands with another player of your choice."
   val requiresTarget: Boolean = true
   val requiresGuess: Boolean = false
@@ -92,6 +98,7 @@ case object King extends Card {
 
 case object Countess extends Card {
   val value = 7
+  val name = "Countess"
   val description = "If you have this card and the King or Prince in your hand, you must discard this card."
   val requiresTarget: Boolean = false
   val requiresGuess: Boolean = false
@@ -100,6 +107,7 @@ case object Countess extends Card {
 
 case object Princess extends Card {
   val value = 8
+  val name = "Princess"
   val description = "If you discard this card, you are out of the round."
   val requiresTarget: Boolean = false
   val requiresGuess: Boolean = false

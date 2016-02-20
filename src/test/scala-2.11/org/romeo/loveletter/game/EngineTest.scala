@@ -1203,7 +1203,6 @@ class EngineSpec extends FlatSpec with Matchers {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
     implicit val r = new Random(7) //seed 7 gives player 1 a prince and a guard
     val game = Game.startMatch(Some(players(0))).exec(Game(players))
-    println(game)
 
     def protectOrEliminateEveryoneThenPlay = for {
       _ <- Game.protectPlayer(players(1), true)
@@ -1216,7 +1215,6 @@ class EngineSpec extends FlatSpec with Matchers {
     } yield (p, result._3, result2._3, p2)
 
     val (newGame, (nextPlayer, result, result2, p2)) = protectOrEliminateEveryoneThenPlay(game)
-    println(newGame)
     result.isLeft should be (true)
     result2.isRight should be (true)
     nextPlayer.name should be (players(1))

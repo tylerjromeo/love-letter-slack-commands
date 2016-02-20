@@ -152,6 +152,9 @@ case object Prince extends Card {
     if(targetName.isEmpty) {
       return State.state(Left(s"A target must be specified")): State[Game, Either[String, String]]
     }
+    if(discarder.hand.contains(Countess)) {
+      return State.state(Left(s"Can't discard $name with Countess")): State[Game, Either[String, String]]
+    }
     Game.getPlayer(targetName.get).flatMap(pOption => {
       pOption.map(p =>
           if(p.isProtected) {
@@ -187,6 +190,9 @@ case object King extends Card {
           Left(s"A target must be specified")
         })
     }
+    if(discarder.hand.contains(Countess)) {
+      return State.state(Left(s"Can't discard $name with Countess")): State[Game, Either[String, String]]
+    }
     Game.getPlayer(targetName.get).flatMap(pOption => {
       pOption.map(p => {
         if(p.isProtected) {
@@ -213,7 +219,9 @@ case object Countess extends Card {
   val requiresTarget: Boolean = false
   val requiresGuess: Boolean = false
   val privateResponse: Boolean = false
-  override def doAction(discarder: Player, targetName: Option[String] = None, guess: Option[Card] = None): State[Game, Either[String, String]] = State.state(Right("You discarded the Countess"))
+  override def doAction(discarder: Player, targetName: Option[String] = None, guess: Option[Card] = None): State[Game, Either[String, String]] = {
+    State.state(Right("You discarded the Countess"))
+  }
 }
 
 case object Princess extends Card {

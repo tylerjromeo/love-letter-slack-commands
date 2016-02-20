@@ -1241,20 +1241,97 @@ class EngineSpec extends FlatSpec with Matchers {
 
   behavior of "The king card"
 
+  it should "switch the remaining card in the current player's hand with the target player" in {
+    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    implicit val r = new Random(18) //seed 18 gives player 1 a King and a handmaid, and player 2 a priest
+    val game = Game.startMatch(Some(players(0))).exec(Game(players))
+
+    def playPrinceOnPlayer = for {
+      p <- Game.currentPlayer
+      result <- Game.processTurn(p.name, King, Some(players(1)), None)
+      kingPlayer <- Game.getPlayer(players(0))
+      currentPlayer <- Game.currentPlayer
+    } yield (result._3, kingPlayer.get, currentPlayer)
+
+    val (newGame, (message, kingPlayer, currentPlayer)) = playPrinceOnPlayer(game)
+
+    message.isRight should be (true)
+    currentPlayer.name should be (players(1))
+    currentPlayer.hand should contain (Handmaid)
+    kingPlayer.hand should contain only (Priest)
+    newGame.discard should contain only (King)
+  }
+
   it should "fail if the targeted player is protected" in {
-    pending //TODO
+    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    implicit val r = new Random(18) //seed 18 gives player 1 a King and a handmaid, and player 2 a priest
+    val game = Game.startMatch(Some(players(0))).exec(Game(players))
+
+    def playKingOnProtectedPlayer = for {
+      _ <- Game.protectPlayer(players(1), true)
+      p <- Game.currentPlayer
+      result <- Game.processTurn(p.name, King, Some(players(1)), None)
+      currentPlayer <- Game.currentPlayer
+    } yield (result._3, currentPlayer)
+
+    val (newGame, (message, currentPlayer)) = playKingOnProtectedPlayer(game)
+
+    message.isLeft should be (true)
+    currentPlayer.name should be (players(0))
   }
 
   it should "fail if the targeted player is eliminated" in {
-    pending //TODO
+    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    implicit val r = new Random(18) //seed 18 gives player 1 a King and a handmaid, and player 2 a priest
+    val game = Game.startMatch(Some(players(0))).exec(Game(players))
+
+    def playKingOnEliminatedPlayer = for {
+      _ <- Game.eliminatePlayer(players(1), true)
+      p <- Game.currentPlayer
+      result <- Game.processTurn(p.name, King, Some(players(1)), None)
+      currentPlayer <- Game.currentPlayer
+    } yield (result._3, currentPlayer)
+
+    val (newGame, (message, currentPlayer)) = playKingOnEliminatedPlayer(game)
+
+    message.isLeft should be (true)
+    currentPlayer.name should be (players(0))
   }
 
   it should "allow the player to play with no effect if every other player is eliminated or protected" in {
-    pending //TODO
+    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    implicit val r = new Random(18) //seed 18 gives player 1 a King and a handmaid, and player 2 a priest
+    val game = Game.startMatch(Some(players(0))).exec(Game(players))
+
+    def protectOrEliminateEveryoneThenPlay = for {
+      _ <- Game.protectPlayer(players(1), true)
+      _ <- Game.eliminatePlayer(players(2), true)
+      _ <- Game.protectPlayer(players(3), true)
+      result <- Game.processTurn(players(0), King, None, None)
+      p <- Game.currentPlayer
+    } yield (p, result._3)
+
+    val (nextPlayer, result) = protectOrEliminateEveryoneThenPlay.eval(game)
+    result.isRight should be (true)
+    nextPlayer.name should be (players(1))
+
   }
 
   it should "fail if a player not in the game is targeted" in {
-    pending //TODO
+    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    implicit val r = new Random(18) //seed 18 gives player 1 a King and a handmaid, and player 2 a priest
+    val game = Game.startMatch(Some(players(0))).exec(Game(players))
+
+    def playKingOnBadplayer = for {
+      p <- Game.currentPlayer
+      result <- Game.processTurn(p.name, Priest, Some("BADPLAYER"), None)
+      currentPlayer <- Game.currentPlayer
+    } yield (result._3, currentPlayer)
+
+    val (newGame, (message, currentPlayer)) = playKingOnBadplayer(game)
+
+    message.isLeft should be (true)
+    currentPlayer.name should be (players(0))
   }
 
   behavior of "The countess card"

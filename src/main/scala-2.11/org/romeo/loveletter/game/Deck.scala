@@ -179,7 +179,31 @@ case object King extends Card {
   val requiresTarget: Boolean = true
   val requiresGuess: Boolean = false
   val privateResponse: Boolean = false
-  override def doAction(discarder: Player, targetName: Option[String], guess: Option[Card] = None): State[Game, Either[String, String]] = State.state(Left("not yet implemented"))
+  override def doAction(discarder: Player, targetName: Option[String], guess: Option[Card] = None): State[Game, Either[String, String]] = {
+    if(targetName.isEmpty) {
+      return Game.isEveryoneElseProtectedOrEliminated.map(if(_) {
+          Right(s"Everyone is safe, $name discarded with no effect")
+        } else {
+          Left(s"A target must be specified")
+        })
+    }
+    Game.getPlayer(targetName.get).flatMap(pOption => {
+      pOption.map(p => {
+        if(p.isProtected) {
+          State.state(Left(s"${p.name} is protected")): State[Game, Either[String, String]]
+        } else if(p.isEliminated) {
+          State.state(Left(s"${p.name} isn't in the match")): State[Game, Either[String, String]]
+        } else {
+          val playerCard = discarder.hand.diff(Seq(King)).head //discard hasn't been processed yet, so remove the king for the comparison
+          val targetCard = p.hand.head
+          for {
+            _ <- Game.updatePlayer(Some(p.copy(hand = Seq(playerCard))))
+            _ <- Game.updatePlayer(Some(discarder.copy(hand = Seq(King, targetCard))))
+          } yield (Right(s"${discarder.name} switched hands with ${p.name}"): Either[String, String])
+        }
+      }).getOrElse(State.state(Left(s"${targetName.get} isn't in the game!"): Either[String, String]))
+    })
+  }
 }
 
 case object Countess extends Card {

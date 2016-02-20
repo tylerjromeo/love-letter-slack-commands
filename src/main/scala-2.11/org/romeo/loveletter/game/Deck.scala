@@ -20,7 +20,7 @@ trait Card {
   val requiresTarget: Boolean
   val requiresGuess: Boolean
   val privateResponse: Boolean
-  def doAction(discarder: Player, targetName: Option[String], guess: Option[Card]): State[Game, Either[String, String]] = State.state(Left("not yet implemented"))
+  def doAction(discarder: Player, targetName: Option[String], guess: Option[Card]): State[Game, Either[String, String]]
 }
 
 object Card {
@@ -163,12 +163,16 @@ case object Prince extends Card {
             State.state(Left(s"${p.name} isn't in the match")): State[Game, Either[String, String]]
           } else {
             //if you call this on yourself, you still have a prince in your hand, so remove that
-            def getCardToDiscard(hand: Seq[Card]) = (if(hand.length > 1) hand.diff(Seq(Prince)) else hand).head
+            val cardToDiscard = (if(p.hand.length > 1) p.hand.diff(Seq(Prince)) else p.hand).head
             def discardThenDraw: State[Game, Either[String, String]] = for {
-              discard <- Game.playerDiscard(p.name, getCardToDiscard(p.hand))
+              discard <- Game.playerDiscard(p.name, cardToDiscard)
               _ <- Game.drawCard(p.name)
             } yield Right(s"${p.name} forced to discard a ${discard.head}")
-            discardThenDraw
+            def discardPrincess: State[Game, Either[String, String]] = for {
+              discard <- Game.playerDiscard(p.name, cardToDiscard)
+              _ <- Game.eliminatePlayer(p.name, true)
+            } yield Right(s"${p.name} forced to discard a ${discard.head}. ${p.name} is eliminated")
+            if(Princess == cardToDiscard) discardPrincess else discardThenDraw
           }
       ).getOrElse(State.state(Left(s"${targetName.get} isn't in the game!"): Either[String, String]))
     })
@@ -231,5 +235,7 @@ case object Princess extends Card {
   val requiresTarget: Boolean = false
   val requiresGuess: Boolean = false
   val privateResponse: Boolean = false
-  override def doAction(discarder: Player, targetName: Option[String] = None, guess: Option[Card] = None): State[Game, Either[String, String]] = State.state(Left("not yet implemented"))
+  override def doAction(discarder: Player, targetName: Option[String] = None, guess: Option[Card] = None): State[Game, Either[String, String]] = {
+    Game.eliminatePlayer(discarder.name, true).map(_ => Right(s"${discarder.name} discarded a $name and is eliminated"): Either[String, String])
+  }
 }

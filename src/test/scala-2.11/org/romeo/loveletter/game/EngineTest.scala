@@ -1387,14 +1387,56 @@ class EngineSpec extends FlatSpec with Matchers {
   behavior of "The princess card"
 
   it should "eliminate the player when discarded" in {
-    pending //TODO
+    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    implicit val r = new Random(3) //seed 3 gives player 1 a Princess
+    val game = Game.startMatch(Some(players(0))).exec(Game(players))
+
+    def discardPrincess = for {
+      result <- Game.processTurn(players(0), Princess, None, None)
+      p <- Game.currentPlayer
+      princessPlayer <- Game.getPlayer(players(0))
+    } yield (p, princessPlayer.get, result._3)
+
+    val (nextPlayer, princessPlayer, result) = discardPrincess.eval(game)
+    result.isRight should be (true)
+    nextPlayer.name should be (players(1))
+    princessPlayer.isEliminated should be (true)
   }
 
   it should "eliminate the player forced to discard it by the prince" in {
-    pending //TODO
+    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    implicit val r = new Random(744) //seed 744 gives player 1 a prince and player 2 a Princess
+    val game = Game.startMatch(Some(players(0))).exec(Game(players))
+
+    def forceDiscardofPrincess = for {
+      result <- Game.processTurn(players(0), Prince, Some(players(1)), None)
+      p <- Game.currentPlayer
+      eliminatedPlayer <- Game.getPlayer(players(1))
+    } yield (p, eliminatedPlayer.get, result._3)
+
+    val (nextPlayer, eliminatedPlayer, result) = forceDiscardofPrincess.eval(game)
+    result.isRight should be (true)
+    nextPlayer.name should be (players(2))
+    eliminatedPlayer.isEliminated should be (true)
   }
 
   it should "eliminate the player when they are forced to discard by their own prince" in {
-    pending //TODO
+    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    implicit val r = new Random(15) //seed 15 gives player 1 a prince and a Princess
+    val game = Game.startMatch(Some(players(0))).exec(Game(players))
+
+    def forceDiscardofPrincess = for {
+      _ <- Game.protectPlayer(players(1), true)
+      _ <- Game.protectPlayer(players(2), true)
+      _ <- Game.protectPlayer(players(3), true)
+      result <- Game.processTurn(players(0), Prince, Some(players(0)), None)
+      p <- Game.currentPlayer
+      eliminatedPlayer <- Game.getPlayer(players(0))
+    } yield (p, eliminatedPlayer.get, result._3)
+
+    val (nextPlayer, eliminatedPlayer, result) = forceDiscardofPrincess.eval(game)
+    result.isRight should be (true)
+    nextPlayer.name should be (players(1))
+    eliminatedPlayer.isEliminated should be (true)
   }
 }

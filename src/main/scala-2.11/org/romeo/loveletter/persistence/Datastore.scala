@@ -1,5 +1,4 @@
 package org.romeo.loveletter.persistence
-import spray.json.JsValue
 
 import scala.collection.mutable
 
@@ -13,7 +12,7 @@ trait Datastore[A] {
   def exists(key: String): Boolean
   def get(key: String): Option[A]
   def put(key: String, value: A): Option[A]
-  def remove(key: String): Unit 
+  def remove(key: String): Unit
 }
 
 class MemoryDataStore[A] extends Datastore[A] {

@@ -21,15 +21,15 @@ object SlackResponseJsonSupport extends DefaultJsonProtocol with SprayJsonSuppor
   implicit object SlackResponseJsonFormats extends RootJsonFormat[SlackResponse] {
     def write(r: SlackResponse) = {
       if(r.privateMessage) {
-        JsObject(Map("response_type" -> JsString("in_channel"), "text" -> JsString(r.text)))
-      } else {
         JsObject(Map("text" -> JsString(r.text)))
+      } else {
+        JsObject(Map("response_type" -> JsString("in_channel"), "text" -> JsString(r.text)))
       }
     }
 
     def read(value: JsValue) = {
       value.asJsObject.getFields("response_type", "text") match {
-        case Seq(JsString(response_type), JsString(text)) => new SlackResponse(true, text)
+        case Seq(JsString(response_type), JsString(text)) => new SlackResponse(false, text)
         case Seq(JsString(text)) => new SlackResponse(false, text)
         case _ => throw new DeserializationException("SlackResponse expected")
       }

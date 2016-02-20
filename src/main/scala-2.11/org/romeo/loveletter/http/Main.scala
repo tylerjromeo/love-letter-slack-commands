@@ -41,14 +41,18 @@ object Main extends App with SimpleRoutingApp {
   implicit val system = ActorSystem("my-system")
   import SlackResponseJsonSupport._
 
+  val teamToken = "K6kOMrLxkZfHoZvKIbE2Guzm"
+
   startServer(interface = "localhost", port = Properties.envOrElse("PORT", "8080").toInt) {
     pathSingleSlash {
       post {
         formFields('token, 'team_id, 'team_domain, 'channel_id, 'channel_name, 'user_id, 'user_name, 'command, 'text, 'response_url) {
           (token, teamId, teamDomain, channelId, channelName, userId, userName, command, test, responseUrl) =>
+            validate(token == teamToken, "Request token does not match team") {
             respondWithMediaType(MediaTypes.`application/json`) {
               complete(SlackResponse(false, "test hello")) //TODO: connect routes to game
             }
+          }            
         }
       }
     }

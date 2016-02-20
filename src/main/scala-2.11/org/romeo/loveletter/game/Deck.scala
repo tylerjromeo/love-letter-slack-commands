@@ -11,6 +11,10 @@ object Deck {
     Seq.fill(1)(King) ++
     Seq.fill(1)(Countess) ++
     Seq.fill(1)(Princess)
+
+    def getCardByName(name: String): Option[Card] = {
+      cards.distinct.find(card => card.name.equalsIgnoreCase(name) || card.value.toString == name)
+    }
 }
 
 trait Card {

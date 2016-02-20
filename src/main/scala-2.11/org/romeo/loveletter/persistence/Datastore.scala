@@ -9,19 +9,22 @@ import scala.collection.mutable
   * Time: 2:59 PM
   *
   */
-trait Datastore {
+trait Datastore[A] {
   def exists(key: String): Boolean
-  def get(key: String): Option[JsValue]
-  def put(key: String, value: JsValue): Unit
+  def get(key: String): Option[A]
+  def put(key: String, value: A): Option[A]
+  def remove(key: String): Unit 
 }
 
-class MemoryDataStore extends Datastore {
+class MemoryDataStore[A] extends Datastore[A] {
 
-  var map: scala.collection.mutable.Map[String, JsValue] = new mutable.HashMap[String, JsValue]()
+  var map: scala.collection.mutable.Map[String, A] = new mutable.HashMap[String, A]()
 
   override def exists(key: String): Boolean = map.contains(key)
 
-  override def get(key: String): Option[JsValue] = map.get(key)
+  override def get(key: String): Option[A] = map.get(key)
 
-  override def put(key: String, value: JsValue): Unit = map.put(key, value)
+  override def put(key: String, value: A): Option[A] = map.put(key, value)
+
+  override def remove(key: String): Unit = map.remove(key)
 }

@@ -46,7 +46,7 @@ class GameManager(val datastore: Datastore[Game])(implicit val r: Random) {
       } yield (currentPlayer.name, allPlayers, topDiscard.map(_.name), cardsLeft)).eval(game)
       Seq(
         s"It is ${currentPlayer}'s turn",
-        s"There are $cardsLeft cards in the deck",
+        s"There are $cardsLeft cards in the deck",//TODO: visible discard pile
         topDiscard.map(c => s"the discard pile has a $c on top").getOrElse("The discard pile is empty"),
         allPlayers.map(p => s"${p.name} has ${p.score} points").mkString("\n")
       ).mkString("\n")

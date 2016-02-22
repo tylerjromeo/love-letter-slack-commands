@@ -67,9 +67,15 @@ object Main extends App with SimpleRoutingApp {
   def runCommand(text: String, channelName: String, userName: String): SlackResponse = {
     val params = text.split("\\s+")
     params(0) match {
-      case "start" => SlackResponse(false, "start NOT YET IMPLEMENTED")
-      case "quit" => SlackResponse(false, "quit NOT YET IMPLEMENTED")
-      case "status" => SlackResponse(false, "status NOT YET IMPLEMENTED")
+      case "start" if (params.length >= 3 && params.length <= 5)=> gameManager.startGame(channelName, params.tail) match {
+        case Left(message) => SlackResponse(true, message)
+        case Right(_) => SlackResponse(false, "Game started!")//todo tell everyone who is first
+      }
+      case "quit" => {
+        gameManager.abortGame(channelName)
+        SlackResponse(false, "Game ended!")
+      }
+      case "status" => SlackResponse(false, gameManager.getGameInfo(channelName))
       case "hand" => SlackResponse(false, "hand NOT YET IMPLEMENTED")
       case "play" if params.length >= 2 => {
         val cardName = params(1)

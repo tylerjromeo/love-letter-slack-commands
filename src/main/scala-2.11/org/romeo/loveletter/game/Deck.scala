@@ -24,7 +24,6 @@ trait Card {
   val description: String
   val requiresTarget: Boolean
   val requiresGuess: Boolean
-  val privateResponse: Boolean
   def doAction(discarder: Player, targetName: Option[String], guess: Option[Card]): State[Game, Either[Message, Message]]
 }
 
@@ -39,7 +38,6 @@ case object Guard extends Card {
   val description = "Name a non-Guard card and choose another player. If that player has that card, he or she is out of the round."
   val requiresTarget: Boolean = true
   val requiresGuess: Boolean = true
-  val privateResponse: Boolean = false
   override def doAction(discarder: Player, targetName: Option[String], guess: Option[Card]): State[Game, Either[Message, Message]] = {
     if(targetName.isEmpty || guess.isEmpty) {
       return Game.isEveryoneElseProtectedOrEliminated.map(if(_) {
@@ -74,7 +72,6 @@ case object Priest extends Card {
   val description = "Look at another player's hand."
   val requiresTarget: Boolean = true
   val requiresGuess: Boolean = false
-  val privateResponse: Boolean = true
   override def doAction(discarder: Player, targetName: Option[String], guess: Option[Card] = None): State[Game, Either[Message, Message]] = {
     if(targetName.isEmpty) {
       return Game.isEveryoneElseProtectedOrEliminated.map(if(_) {
@@ -90,7 +87,7 @@ case object Priest extends Card {
           } else if(p.isEliminated) {
             State.state(Left(s"${p.name} isn't in the match")): State[Game, Either[Message, Message]]
           } else {
-            State.state(Right(s"${p.name} has a ${p.hand.head}")): State[Game, Either[Message, Message]]
+            State.state(Right(new Private(s"${p.name} has a ${p.hand.head}"))): State[Game, Either[Message, Message]]
           }
       ).getOrElse(State.state(Left(s"${targetName.get} isn't in the game!"): Either[Message, Message]))
     })
@@ -103,7 +100,6 @@ case object Baron extends Card {
   val description = "You and another player secretly compare hands. The player with the lower value is out of the round."
   val requiresTarget: Boolean = true
   val requiresGuess: Boolean = false
-  val privateResponse: Boolean = false
   override def doAction(discarder: Player, targetName: Option[String], guess: Option[Card] = None): State[Game, Either[Message, Message]] = {
     if(targetName.isEmpty) {
       return Game.isEveryoneElseProtectedOrEliminated.map(if(_) {
@@ -140,7 +136,6 @@ case object Handmaid extends Card {
   val description = "Until your next turn, ignore all effects from other player's cards."
   val requiresTarget: Boolean = false
   val requiresGuess: Boolean = false
-  val privateResponse: Boolean = false
   override def doAction(discarder: Player, targetName: Option[String] = None, guess: Option[Card] = None): State[Game, Either[Message, Message]] = {
     Game.protectPlayer(discarder.name, true).map(_ => Right(s"${discarder.name} is protected")) //HAMMAID
   }
@@ -190,7 +185,6 @@ case object King extends Card {
   val description = "Trade hands with another player of your choice."
   val requiresTarget: Boolean = true
   val requiresGuess: Boolean = false
-  val privateResponse: Boolean = false
   override def doAction(discarder: Player, targetName: Option[String], guess: Option[Card] = None): State[Game, Either[Message, Message]] = {
     if(targetName.isEmpty) {
       return Game.isEveryoneElseProtectedOrEliminated.map(if(_) {
@@ -227,7 +221,6 @@ case object Countess extends Card {
   val description = "If you have this card and the King or Prince in your hand, you must discard this card."
   val requiresTarget: Boolean = false
   val requiresGuess: Boolean = false
-  val privateResponse: Boolean = false
   override def doAction(discarder: Player, targetName: Option[String] = None, guess: Option[Card] = None): State[Game, Either[Message, Message]] = {
     State.state(Right("You discarded the Countess"))
   }
@@ -239,7 +232,6 @@ case object Princess extends Card {
   val description = "If you discard this card, you are out of the round."
   val requiresTarget: Boolean = false
   val requiresGuess: Boolean = false
-  val privateResponse: Boolean = false
   override def doAction(discarder: Player, targetName: Option[String] = None, guess: Option[Card] = None): State[Game, Either[Message, Message]] = {
     Game.eliminatePlayer(discarder.name, true).map(_ => Right(s"${discarder.name} discarded a $name and is eliminated"): Either[Message, Message])
   }

@@ -2,6 +2,7 @@ package org.romeo.loveletter.game
 
 import scala.util.Random
 import scala.collection.immutable.List
+import scala.language.implicitConversions
 
 import scalaz.State
 
@@ -15,6 +16,12 @@ case class Game(
 }
 
 object Game {
+
+  abstract class Message(val msg: String)
+  case class Public(override val msg: String) extends Message(msg)
+  case class Private(override val msg: String) extends Message(msg)
+
+  implicit def stringToMessageImplicit(s: String) = new Public(s)
 
   /**
    * Makes a new game object with the given player names
@@ -266,7 +273,7 @@ object Game {
     discard: Card,
     targetName: Option[String] = None,
     guess: Option[Card] = None)
-    (implicit r: Random): State[Game, (Option[Player], Option[Player], Either[String, String])] = {
+    (implicit r: Random): State[Game, (Option[Player], Option[Player], Either[Message, Message])] = {//TODO: make a distinction between private and public messages.
 
     def maybeDiscard(b: Boolean, name: String, card: Card):State[Game, _] = if(b) playerDiscard(name, card) else State.state(None)
     def maybeEndTurn(b: Boolean):State[Game, _] = if(b) endTurn else State.state(None)
@@ -285,7 +292,7 @@ object Game {
         } else {
           None
         }
-      }).getOrElse(State.state((None, None, Left("Player not found or not in game")))))
+      }).getOrElse(State.state((None, None, Left(new Private("Player not found or not in game"))))))
   }
 
   /**

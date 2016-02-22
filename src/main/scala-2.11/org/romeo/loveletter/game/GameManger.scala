@@ -4,6 +4,7 @@ import scala.util.Random
 import scalaz.State
 
 import org.romeo.loveletter.game._
+import org.romeo.loveletter.game.Game._
 import org.romeo.loveletter.persistence.Datastore
 
 class GameManager(val datastore: Datastore[Game])(implicit val r: Random) {
@@ -22,16 +23,18 @@ class GameManager(val datastore: Datastore[Game])(implicit val r: Random) {
     datastore.remove(gameId)
   }
 
-  def takeTurn(gameId: String, player: String, cardName: String, targetPlayer: Option[String], cardGuess: Option[String]): Either[String, String] = {
+  def takeTurn(gameId: String, player: String, cardName: String, targetPlayer: Option[String], cardGuess: Option[String]): Either[Message, Message] = {
     Deck.getCardByName(cardName).map(card =>
       datastore.get(gameId).map(game => {
         Game.processTurn(player, card, targetPlayer, cardGuess.flatMap(Deck.getCardByName(_))).eval(game)
-      }).getOrElse((None, None, Left("Game not found")))
+      }).getOrElse((None, None, Left(new Private("Game not found"))))
     ).map(result => {
       val matchWinnerMessage = result._1.map(w => s"\n$w has won the match!").getOrElse("")
       val gameWinnerMessage = result._2.map(w => s"\n$w has won the game!").getOrElse("")
-      result._3.right.map(_ + matchWinnerMessage + gameWinnerMessage)
-    }).getOrElse(Left(s"$cardName doesn't exist in the game"))
+      if(result._2.isDefined) Right(new Public(s"${result._3.merge.msg}\n${result._2.get} has won the game!"))
+      else if(result._1.isDefined) Right(new Public(s"${result._3.merge.msg}\n${result._1.get} has won the match!"))
+      else result._3
+    }).getOrElse(Left(new Private(s"$cardName doesn't exist in the game")))
   }
 
   def getGameInfo(gameId: String): String = {

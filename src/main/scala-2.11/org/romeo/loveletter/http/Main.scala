@@ -73,7 +73,7 @@ object Main extends App with SimpleRoutingApp {
           (token, teamId, teamDomain, channelId, channelName, userId, userName, command, text, responseUrl) =>
             validate(token == teamToken, "Request token does not match team") {
             respondWithMediaType(MediaTypes.`application/json`) {
-              complete(runCommand(text)) //TODO: connect routes to game
+              complete(runCommand(text)) 
             }
           }
         }

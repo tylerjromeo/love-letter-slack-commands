@@ -913,7 +913,7 @@ class EngineSpec extends FlatSpec with Matchers {
     val message = peekAtPlayersCard.eval(game)
 
     message.isRight should be (true)
-    message.merge.contains(Guard.name) should be (true)
+    message.merge.msg.contains(Guard.name) should be (true)
   }
 
   it should "fail if a player not in the game is targeted" in {

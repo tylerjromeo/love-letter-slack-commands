@@ -1,9 +1,8 @@
-package org.romeo.loveletter.http
+package org.romeo.loveletter.game
 
 import scala.util.Random
 import scalaz.State
 
-import org.romeo.loveletter.game._
 import org.romeo.loveletter.game.Game._
 import org.romeo.loveletter.persistence.Datastore
 

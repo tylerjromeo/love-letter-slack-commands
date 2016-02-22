@@ -6,6 +6,8 @@ package org.romeo.loveletter.http
  *
  */
 
+import scala.language.implicitConversions
+import scala.util.Random
 import akka.actor.ActorSystem
 import spray.http.{MediaTypes, StatusCodes}
 import spray.json._
@@ -14,6 +16,9 @@ import scala.util.{Properties, Success, Failure, Try}
 import org.romeo.loveletter.persistence.MemoryDataStore
 import spray.httpx.SprayJsonSupport
 import spray.json.RootJsonFormat
+
+import org.romeo.loveletter.game._
+import org.romeo.loveletter.game.Game._
 
 case class SlackResponse(privateMessage: Boolean, text: String)
 
@@ -38,8 +43,13 @@ object SlackResponseJsonSupport extends DefaultJsonProtocol with SprayJsonSuppor
 }
 
 object Main extends App with SimpleRoutingApp {
-  implicit val system = ActorSystem("my-system")
   import SlackResponseJsonSupport._
+  implicit def messageToSlackResponseImplicit(m: Message) = {
+    if(m.isInstanceOf[Private]) SlackResponse(true, m.msg) else SlackResponse(false, m.msg)
+  }
+  implicit val system = ActorSystem("my-system")
+
+  val gameManager = new GameManager(new MemoryDataStore[Game]())(new Random())
 
   val teamToken = "K6kOMrLxkZfHoZvKIbE2Guzm"
 
@@ -54,14 +64,19 @@ object Main extends App with SimpleRoutingApp {
     Source for bot at: https://github.com/tylerjromeo/love-letter-slack-commands
   """
 
-  def runCommand(text: String): SlackResponse = {
+  def runCommand(text: String, channelName: String, userName: String): SlackResponse = {
     val params = text.split("\\s+")
     params(0) match {
       case "start" => SlackResponse(false, "start NOT YET IMPLEMENTED")
       case "quit" => SlackResponse(false, "quit NOT YET IMPLEMENTED")
       case "status" => SlackResponse(false, "status NOT YET IMPLEMENTED")
       case "hand" => SlackResponse(false, "hand NOT YET IMPLEMENTED")
-      case "play" => SlackResponse(false, "play NOT YET IMPLEMENTED")
+      case "play" if params.length >= 2 => {
+        val cardName = params(1)
+        val target = if(params.isDefinedAt(2)) Some(params(2)) else None
+        val guess = if(params.isDefinedAt(3)) Some(params(3)) else None
+        gameManager.takeTurn(channelName, userName, cardName, target, guess).merge
+      }
       case _ => SlackResponse(true, helpText)
     }
   }
@@ -73,7 +88,7 @@ object Main extends App with SimpleRoutingApp {
           (token, teamId, teamDomain, channelId, channelName, userId, userName, command, text, responseUrl) =>
             validate(token == teamToken, "Request token does not match team") {
             respondWithMediaType(MediaTypes.`application/json`) {
-              complete(runCommand(text)) 
+              complete(runCommand(text, channelName, userName))
             }
           }
         }

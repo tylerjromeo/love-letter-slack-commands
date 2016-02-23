@@ -273,7 +273,8 @@ object Game {
     discard: Card,
     targetName: Option[String] = None,
     guess: Option[Card] = None)
-    (implicit r: Random): State[Game, (Option[Player], Option[Player], Either[Message, Message])] = {//TODO: make a distinction between private and public messages.
+    (implicit r: Random): State[Game, (Option[Player], Option[Player], Either[Message, Message])] = {
+    println(s" $playerName $discard ${targetName.getOrElse("None")} ${guess.getOrElse("None")}")
 
     def maybeDiscard(b: Boolean, name: String, card: Card):State[Game, _] = if(b) playerDiscard(name, card) else State.state(None)
     def maybeEndTurn(b: Boolean):State[Game, _] = if(b) endTurn else State.state(None)
@@ -281,7 +282,11 @@ object Game {
     getPlayer(playerName).flatMap(playerOption =>
       playerOption.flatMap(p => {
         //this is kind of cheating, but we can tell if the player is the current player by seeing if they have 2 cards in their hand
-        if (p.hand.length == 2 && p.hand.contains(discard)) {
+        if (p.hand.length != 2) {
+          Some(State.state((None, None, Left(new Private("It is not your turn"))))): Option[State[Game, (Option[Player], Option[Player], Either[Message, Message])]]
+        } else if(!p.hand.contains(discard)) {
+          Some(State.state((None, None, Left(new Private("you to not have that card"))))): Option[State[Game, (Option[Player], Option[Player], Either[Message, Message])]]
+        } else {
           Some(for {
             actionResult <- discard.doAction(p, targetName, guess)
             _ <- maybeDiscard(actionResult.isRight, p.name, discard)
@@ -289,8 +294,6 @@ object Game {
             matchWinner <- checkMatchOver(r)
             gameWinner <- findWinner
           } yield (matchWinner, gameWinner, actionResult))
-        } else {
-          None
         }
       }).getOrElse(State.state((None, None, Left(new Private("Player not found or not in game"))))))
   }

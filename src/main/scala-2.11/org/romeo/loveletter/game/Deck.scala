@@ -25,6 +25,8 @@ trait Card {
   val requiresTarget: Boolean
   val requiresGuess: Boolean
   def doAction(discarder: Player, targetName: Option[String], guess: Option[Card]): State[Game, Either[Message, Message]]
+  override def toString: String = s"""$value: $name
+                                    |$description""".stripMargin                                   
 }
 
 object Card {

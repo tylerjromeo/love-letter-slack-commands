@@ -76,7 +76,7 @@ object Main extends App with SimpleRoutingApp {
         SlackResponse(false, "Game ended!")
       }
       case "status" => SlackResponse(false, gameManager.getGameInfo(channelName))
-      case "hand" => SlackResponse(false, "hand NOT YET IMPLEMENTED")
+      case "hand" => SlackResponse(true, gameManager.getHandInfo(channelName, userName))
       case "play" if params.length >= 2 => {
         val cardName = params(1)
         val target = if(params.isDefinedAt(2)) Some(params(2)) else None

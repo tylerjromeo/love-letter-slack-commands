@@ -278,6 +278,7 @@ object Game {
 
     def maybeDiscard(b: Boolean, name: String, card: Card):State[Game, _] = if(b) playerDiscard(name, card) else State.state(None)
     def maybeEndTurn(b: Boolean):State[Game, _] = if(b) endTurn else State.state(None)
+    def maybeDrawCard(b: Boolean, playerName: String):State[Game, _] = if(b) drawCard(playerName) else State.state(None)
 
     getPlayer(playerName).flatMap(playerOption =>
       playerOption.flatMap(p => {
@@ -291,6 +292,8 @@ object Game {
             actionResult <- discard.doAction(p, targetName, guess)
             _ <- maybeDiscard(actionResult.isRight, p.name, discard)
             _ <- maybeEndTurn(actionResult.isRight)
+            nextPlayer <- currentPlayer
+            _ <- maybeDrawCard(actionResult.isRight, nextPlayer.name)
             matchWinner <- checkMatchOver(r)
             gameWinner <- findWinner
           } yield (matchWinner, gameWinner, actionResult))

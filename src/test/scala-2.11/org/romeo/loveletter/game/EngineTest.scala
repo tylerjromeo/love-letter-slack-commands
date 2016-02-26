@@ -678,6 +678,23 @@ class EngineSpec extends FlatSpec with Matchers {
     nextPlayer.name should be(players(1))
   }
 
+  it should "cause the next player to draw a card after the current player takes a turn" in {
+    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    implicit val r = new Random(7373)
+    val game = Game.startMatch(Some(players(0))).exec(Game(players))
+
+    def takeATurnThenGetNextPlayer = for {
+      p <- Game.currentPlayer
+      _ <- Game.processTurn(p.name, p.hand.head)
+      p2 <- Game.currentPlayer
+    } yield p2
+
+    val (newGame, nextPlayer) = takeATurnThenGetNextPlayer(game)
+
+    nextPlayer.name should be(players(1))
+    nextPlayer.hand should have length(2)
+  }
+
   it should "add the discarded card to the discard pile" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
     implicit val r = new Random(24) //Use 24 as a seed for tests that need to ignore card effects. This will give the first player a countess

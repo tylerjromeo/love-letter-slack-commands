@@ -26,7 +26,7 @@ trait Card {
   val requiresGuess: Boolean
   def doAction(discarder: Player, targetName: Option[String], guess: Option[Card]): State[Game, Either[Message, Message]]
   override def toString: String = s"""$value: $name
-                                    |$description""".stripMargin                                   
+                                    |$description""".stripMargin
 }
 
 object Card {
@@ -146,7 +146,7 @@ case object Handmaid extends Card {
 case object Prince extends Card {
   val value = 5
   val name = "Prince"
-  val description = "Choose any player (inluding yourself) ato discard his or her hand and draw a new card."
+  val description = "Choose any player (inluding yourself) to discard his or her hand and draw a new card."
   val requiresTarget: Boolean = true
   val requiresGuess: Boolean = false
   val privateResponse: Boolean = false

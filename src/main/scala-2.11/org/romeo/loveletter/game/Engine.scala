@@ -273,7 +273,7 @@ object Game {
     discard: Card,
     targetName: Option[String] = None,
     guess: Option[Card] = None)
-    (implicit r: Random): State[Game, (Option[Player], Option[Player], Either[Message, Message])] = {
+    (implicit r: Random): State[Game, Either[Message, Seq[Message]]] = {
     println(s" $playerName $discard ${targetName.getOrElse("None")} ${guess.getOrElse("None")}")
 
     def maybeDiscard(b: Boolean, name: String, card: Card):State[Game, _] = if(b) playerDiscard(name, card) else State.state(None)
@@ -284,9 +284,9 @@ object Game {
       playerOption.flatMap(p => {
         //this is kind of cheating, but we can tell if the player is the current player by seeing if they have 2 cards in their hand
         if (p.hand.length != 2) {
-          Some(State.state((None, None, Left(new Private("It is not your turn"))))): Option[State[Game, (Option[Player], Option[Player], Either[Message, Message])]]
+          Some(State.state(Left(new Private("It is not your turn")))): Option[State[Game, Either[Message, Seq[Message]]]]
         } else if(!p.hand.contains(discard)) {
-          Some(State.state((None, None, Left(new Private("you to not have that card"))))): Option[State[Game, (Option[Player], Option[Player], Either[Message, Message])]]
+          Some(State.state(Left(new Private("you to not have that card")))): Option[State[Game, Either[Message, Seq[Message]]]]
         } else {
           Some(for {
             actionResult <- discard.doAction(p, targetName, guess)
@@ -296,9 +296,15 @@ object Game {
             _ <- maybeDrawCard(actionResult.isRight, nextPlayer.name)
             matchWinner <- checkMatchOver(r)
             gameWinner <- findWinner
-          } yield (matchWinner, gameWinner, actionResult))
+          } yield (actionResult.right.map(m => {
+            Seq[Option[Message]](Some(m),
+              Some(s"It is ${nextPlayer.name}'s turn"),
+              matchWinner.map(p => s"${p.name} has won the match!"),
+              gameWinner.map(p => s"${p.name} has won the game!")
+            ).flatten
+          }))): Option[State[Game, Either[Message, Seq[Message]]]]
         }
-      }).getOrElse(State.state((None, None, Left(new Private("Player not found or not in game"))))))
+      }).getOrElse(State.state(Left(new Private("Player not found or not in game")))))
   }
 
   /**

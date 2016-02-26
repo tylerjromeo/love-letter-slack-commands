@@ -69,7 +69,7 @@ object Main extends App with SimpleRoutingApp {
     params(0) match {
       case "start" if (params.length >= 3 && params.length <= 5)=> gameManager.startGame(channelName, params.tail) match {
         case Left(message) => SlackResponse(true, message)
-        case Right(_) => SlackResponse(false, "Game started!")//todo tell everyone who is first
+        case Right(_) => SlackResponse(false, "Game started!")
       }
       case "quit" => {
         gameManager.abortGame(channelName)
@@ -81,7 +81,10 @@ object Main extends App with SimpleRoutingApp {
         val cardName = params(1)
         val target = if(params.isDefinedAt(2)) Some(params(2)) else None
         val guess = if(params.isDefinedAt(3)) Some(params(3)) else None
-        gameManager.takeTurn(channelName, userName, cardName, target, guess).merge
+        gameManager.takeTurn(channelName, userName, cardName, target, guess) match {
+          case Left(message) => message
+          case Right(messages) => messages.foldLeft(SlackResponse(false, ""))((sm, m) => SlackResponse(false, sm.text + "\n" + m.msg))
+        }
       }
       case _ => SlackResponse(true, helpText)
     }

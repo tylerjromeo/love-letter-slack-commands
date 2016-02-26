@@ -721,12 +721,12 @@ class EngineSpec extends FlatSpec with Matchers {
       _ <- Game.eliminatePlayer(players(3), true)
       p <- Game.currentPlayer
       winners <- Game.processTurn(p.name, p.hand.head)
-    } yield (winners._1, winners._2)
+    } yield winners
 
-    val (matchWinner, gameWinner) = makeSomeoneWinnerThenTakeTurn.eval(game)
+    val winners = makeSomeoneWinnerThenTakeTurn.eval(game)
 
-    matchWinner.get.name should be(players(0))
-    gameWinner should be(empty)
+    winners.isRight should be (true)
+    winners.right.get.last should be (s"${players(0)} has won the match!")
   }
 
   it should "start a new match if there is a winner" in {

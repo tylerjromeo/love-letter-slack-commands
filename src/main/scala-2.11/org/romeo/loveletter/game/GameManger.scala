@@ -22,20 +22,14 @@ class GameManager(val datastore: Datastore[Game])(implicit val r: Random) {
     datastore.remove(gameId)
   }
 
-  def takeTurn(gameId: String, player: String, cardName: String, targetPlayer: Option[String], cardGuess: Option[String]): Either[Message, Message] = {
+  def takeTurn(gameId: String, player: String, cardName: String, targetPlayer: Option[String], cardGuess: Option[String]): Either[Message, Seq[Message]] = {
     Deck.getCardByName(cardName).map(card =>
       datastore.get(gameId).map(game => {
         val (newGame, result) = Game.processTurn(player, card, targetPlayer, cardGuess.flatMap(Deck.getCardByName(_))).apply(game)
         datastore.put(gameId, newGame)
         result
-      }).getOrElse((None, None, Left(new Private("Game not found"))))
-    ).map(result => {
-      val matchWinnerMessage = result._1.map(w => s"\n$w has won the match!").getOrElse("")
-      val gameWinnerMessage = result._2.map(w => s"\n$w has won the game!").getOrElse("")
-      if(result._2.isDefined) Right(new Public(s"${result._3.merge.msg}\n${result._2.get} has won the game!"))
-      else if(result._1.isDefined) Right(new Public(s"${result._3.merge.msg}\n${result._1.get} has won the match!"))
-      else result._3
-    }).getOrElse(Left(new Private(s"$cardName doesn't exist in the game")))
+      }).getOrElse(Left(new Private("Game not found")))
+    ).getOrElse(Left(new Private(s"$cardName doesn't exist in the game")))
   }
 
   def getGameInfo(gameId: String): String = {

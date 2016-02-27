@@ -16,6 +16,8 @@ object Deck {
     def getCardByName(name: String): Option[Card] = {
       cards.distinct.find(card => card.name.equalsIgnoreCase(name) || card.value.toString == name)
     }
+
+    def isCardName(name: String): Boolean = getCardByName(name).isDefined
 }
 
 trait Card {

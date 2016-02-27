@@ -54,17 +54,24 @@ object Main extends App with SimpleRoutingApp {
   val teamToken = "K6kOMrLxkZfHoZvKIbE2Guzm"
 
   val helpText = """
-    Rules are online at: http://www.alderac.com/tempest/files/2012/09/Love_Letter_Rules_Final.pdf
-    `/love help` to get this help
-    `/love start [player names]` to start a new game
-    `/love quit` to end the game in the channel
-    `/love hand` to see your hand
-    `/love status` to see all available information on the board
-    `/love play [card name] [?target] [?guess]` to play a card
-    Source for bot at: https://github.com/tylerjromeo/love-letter-slack-commands
-  """
+                  |Rules are online at: http://www.alderac.com/tempest/files/2012/09/Love_Letter_Rules_Final.pdf
+                  |`/love help` to get this help
+                  |`/love start [player names]` to start a new game
+                  |`/love quit` to end the game in the channel
+                  |`/love hand` to see your hand
+                  |`/love status` to see all available information on the board
+                  |`/love play [card name] [?target] [?guess]` to play a card. (play can be omitted)
+                  |`/love discard` is equivalent to `/love play`
+                  |Source for bot at: https://github.com/tylerjromeo/love-letter-slack-commands
+                """.stripMargin
 
   def runCommand(text: String, channelName: String, userName: String): SlackResponse = {
+    def playCard(cardName: String, target: Option[String], guess: Option[String]): SlackResponse = {
+        gameManager.takeTurn(channelName, userName, cardName, target, guess) match {
+          case Left(message) => message
+          case Right(messages) => messages.foldLeft(SlackResponse(false, ""))((sm, m) => SlackResponse(false, sm.text + "\n" + m.msg))
+        }
+      }
     val params = text.split("\\s+")
     params(0) match {
       case "start" if (params.length >= 3 && params.length <= 5)=> gameManager.startGame(channelName, params.tail) match {
@@ -77,14 +84,17 @@ object Main extends App with SimpleRoutingApp {
       }
       case "status" => SlackResponse(false, gameManager.getGameInfo(channelName))
       case "hand" => SlackResponse(true, gameManager.getHandInfo(channelName, userName))
-      case "play" if params.length >= 2 => {
+      case "play"|"discard" if params.length >= 2 => {
         val cardName = params(1)
         val target = if(params.isDefinedAt(2)) Some(params(2)) else None
         val guess = if(params.isDefinedAt(3)) Some(params(3)) else None
-        gameManager.takeTurn(channelName, userName, cardName, target, guess) match {
-          case Left(message) => message
-          case Right(messages) => messages.foldLeft(SlackResponse(false, ""))((sm, m) => SlackResponse(false, sm.text + "\n" + m.msg))
-        }
+        playCard(cardName, target, guess)
+      }
+      case x if(Deck.isCardName(x)) => {
+        val cardName = params(0)
+        val target = if(params.isDefinedAt(1)) Some(params(1)) else None
+        val guess = if(params.isDefinedAt(2)) Some(params(2)) else None
+        playCard(cardName, target, guess)
       }
       case _ => SlackResponse(true, helpText)
     }

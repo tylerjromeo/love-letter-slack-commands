@@ -274,7 +274,6 @@ object Game {
     targetName: Option[String] = None,
     guess: Option[Card] = None)
     (implicit r: Random): State[Game, Either[Message, Seq[Message]]] = {
-    println(s" $playerName $discard ${targetName.getOrElse("None")} ${guess.getOrElse("None")}")
 
     def maybeDiscard(b: Boolean, name: String, card: Card):State[Game, _] = if(b) playerDiscard(name, card) else State.state(None)
     def maybeEndTurn(b: Boolean):State[Game, _] = if(b) endTurn else State.state(None)

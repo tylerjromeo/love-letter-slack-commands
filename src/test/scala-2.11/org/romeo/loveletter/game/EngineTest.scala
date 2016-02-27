@@ -726,7 +726,7 @@ class EngineSpec extends FlatSpec with Matchers {
     val winners = makeSomeoneWinnerThenTakeTurn.eval(game)
 
     winners.isRight should be (true)
-    winners.right.get.last should be (s"${players(0)} has won the match!")
+    winners.right.get.last.msg should be (s"${players(0)} has won the match!")
   }
 
   it should "start a new match if there is a winner" in {
@@ -769,12 +769,12 @@ class EngineSpec extends FlatSpec with Matchers {
       _ <- Game.awardPoint(players(0))
       p <- Game.currentPlayer
       winners <- Game.processTurn(p.name, p.hand.head)
-    } yield (winners._1, winners._2)
+    } yield winners
 
-    val (matchWinner, gameWinner) = makeSomeoneWinnerThenTakeTurn.eval(game)
+    val winners = makeSomeoneWinnerThenTakeTurn.eval(game)
 
-    matchWinner.get.name should be(players(0))
-    gameWinner.get.name should be(players(0))
+    winners.isRight should be (true)
+    winners.right.get.last.msg should be (s"${players(0)} has won the game!")
   }
 
   behavior of "The guard card"
@@ -788,7 +788,7 @@ class EngineSpec extends FlatSpec with Matchers {
       p <- Game.currentPlayer
       result <- Game.processTurn(p.name, Guard, Some(players(1)), Some(Priest))
       target <- Game.getPlayer(players(1))
-    } yield (result._3, target.get)
+    } yield (result, target.get)
 
     val (newGame, (message, target)) = playGuardAndGuessRight(game)
 
@@ -805,7 +805,7 @@ class EngineSpec extends FlatSpec with Matchers {
       p <- Game.currentPlayer
       result <- Game.processTurn(p.name, Guard, Some(players(1)), Some(Baron)) //WRONG
       target <- Game.getPlayer(players(1))
-    } yield (result._3, target.get)
+    } yield (result, target.get)
 
     val (newGame, (message, target)) = playGuardAndGuessRight(game)
 
@@ -822,7 +822,7 @@ class EngineSpec extends FlatSpec with Matchers {
       p <- Game.currentPlayer
       result <- Game.processTurn(p.name, Guard, Some(players(1)), Some(Guard))
       currentPlayer <- Game.currentPlayer
-    } yield (result._3, currentPlayer)
+    } yield (result, currentPlayer)
 
     val (newGame, (message, currentPlayer)) = playGuardAndGuessRight(game)
 
@@ -839,7 +839,7 @@ class EngineSpec extends FlatSpec with Matchers {
       p <- Game.currentPlayer
       result <- Game.processTurn(p.name, Guard, Some("BADPLAYER"), Some(Priest))
       currentPlayer <- Game.currentPlayer
-    } yield (result._3, currentPlayer)
+    } yield (result, currentPlayer)
 
     val (newGame, (message, currentPlayer)) = playGuardAndGuessBadplayer(game)
 
@@ -857,7 +857,7 @@ class EngineSpec extends FlatSpec with Matchers {
       p <- Game.currentPlayer
       result <- Game.processTurn(p.name, Guard, Some(players(1)), Some(Priest))
       currentPlayer <- Game.currentPlayer
-    } yield (result._3, currentPlayer)
+    } yield (result, currentPlayer)
 
     val (message, currentPlayer) = protectThenPlayGuard.eval(game)
 
@@ -875,7 +875,7 @@ class EngineSpec extends FlatSpec with Matchers {
       p <- Game.currentPlayer
       result <- Game.processTurn(p.name, Guard, Some(players(1)), Some(Priest))
       currentPlayer <- Game.currentPlayer
-    } yield (result._3, currentPlayer)
+    } yield (result, currentPlayer)
 
     val (message, currentPlayer) = protectThenPlayGuard.eval(game)
 
@@ -894,7 +894,7 @@ class EngineSpec extends FlatSpec with Matchers {
       _ <- Game.protectPlayer(players(3), true)
       result <- Game.processTurn(players(0), Guard, None, None)
       p <- Game.currentPlayer
-    } yield (p, result._3)
+    } yield (p, result)
 
     val (nextPlayer, result) = protectOrEliminateEveryoneThenPlay.eval(game)
     result.isRight should be (true)
@@ -908,11 +908,11 @@ class EngineSpec extends FlatSpec with Matchers {
     val game = Game(players)
     val (game1, result1) = Game.processTurn(players(0), Guard, None, Some(Priest)).apply(game)
     game1 should be (game)
-    result1._3.isLeft should be (true)
+    result1.isLeft should be (true)
 
     val (game2, result2) = Game.processTurn(players(0), Guard, Some(players(2)), None).apply(game)
     game2 should be (game)
-    result2._3.isLeft should be (true)
+    result2.isLeft should be (true)
   }
 
   behavior of "The priest card"
@@ -925,12 +925,12 @@ class EngineSpec extends FlatSpec with Matchers {
     def peekAtPlayersCard = for {
       p <- Game.currentPlayer
       result <- Game.processTurn(p.name, Priest, Some(players(1)), None)
-    } yield result._3
+    } yield result
 
     val message = peekAtPlayersCard.eval(game)
 
     message.isRight should be (true)
-    message.merge.msg.contains(Guard.name) should be (true)
+    message.right.get.head.msg.contains(Guard.name) should be (true)
   }
 
   it should "fail if a player not in the game is targeted" in {
@@ -942,7 +942,7 @@ class EngineSpec extends FlatSpec with Matchers {
       p <- Game.currentPlayer
       result <- Game.processTurn(p.name, Priest, Some("BADPLAYER"), None)
       currentPlayer <- Game.currentPlayer
-    } yield (result._3, currentPlayer)
+    } yield (result, currentPlayer)
 
     val (newGame, (message, currentPlayer)) = playPriestOnBadplayer(game)
 
@@ -960,7 +960,7 @@ class EngineSpec extends FlatSpec with Matchers {
       p <- Game.currentPlayer
       result <- Game.processTurn(p.name, Priest, Some(players(1)), None)
       currentPlayer <- Game.currentPlayer
-    } yield (result._3, currentPlayer)
+    } yield (result, currentPlayer)
 
     val (newGame, (message, currentPlayer)) = playPriestOnProtectedPlayer(game)
 
@@ -978,7 +978,7 @@ class EngineSpec extends FlatSpec with Matchers {
       p <- Game.currentPlayer
       result <- Game.processTurn(p.name, Priest, Some(players(1)), None)
       currentPlayer <- Game.currentPlayer
-    } yield (result._3, currentPlayer)
+    } yield (result, currentPlayer)
 
     val (newGame, (message, currentPlayer)) = playPriestOnEliminatedPlayer(game)
 
@@ -997,7 +997,7 @@ class EngineSpec extends FlatSpec with Matchers {
       _ <- Game.protectPlayer(players(3), true)
       result <- Game.processTurn(players(0), Priest, None, None)
       p <- Game.currentPlayer
-    } yield (p, result._3)
+    } yield (p, result)
 
     val (nextPlayer, result) = protectOrEliminateEveryoneThenPlay.eval(game)
     result.isRight should be (true)
@@ -1011,7 +1011,7 @@ class EngineSpec extends FlatSpec with Matchers {
     val game = Game(players)
     val (game1, result1) = Game.processTurn(players(0), Priest, None, None).apply(game)
     game1 should be (game)
-    result1._3.isLeft should be (true)
+    result1.isLeft should be (true)
   }
 
   behavior of "The baron card"
@@ -1021,7 +1021,7 @@ class EngineSpec extends FlatSpec with Matchers {
     implicit val r = new Random(12) //seed 0 gives player 1 a baron and a countess, and player 2 a guard
     val game = Game.startMatch(Some(players(0))).exec(Game(players))
 
-    val (newGame, (_, _, response)) = Game.processTurn(players(0), Baron, Some(players(1)), None).apply(game)
+    val (newGame, response) = Game.processTurn(players(0), Baron, Some(players(1)), None).apply(game)
 
     response.isRight should be (true)
     Game.getPlayer(players(0)).eval(newGame).get.isEliminated should be (false)
@@ -1035,7 +1035,7 @@ class EngineSpec extends FlatSpec with Matchers {
     implicit val r = new Random(0) //seed 0 gives player 1 a baron and a priest, and player 2 a prince
     val game = Game.startMatch(Some(players(0))).exec(Game(players))
 
-    val (newGame, (_, _, response)) = Game.processTurn(players(0), Baron, Some(players(1)), None).apply(game)
+    val (newGame, response) = Game.processTurn(players(0), Baron, Some(players(1)), None).apply(game)
 
     response.isRight should be (true)
     Game.getPlayer(players(0)).eval(newGame).get.isEliminated should be (true)
@@ -1049,7 +1049,7 @@ class EngineSpec extends FlatSpec with Matchers {
     implicit val r = new Random(23) //seed 0 gives player 1 a baron and a handmaid, and player 2 a handmaid
     val game = Game.startMatch(Some(players(0))).exec(Game(players))
 
-    val (newGame, (_, _, response)) = Game.processTurn(players(0), Baron, Some(players(1)), None).apply(game)
+    val (newGame, response) = Game.processTurn(players(0), Baron, Some(players(1)), None).apply(game)
 
     response.isRight should be (true)
     Game.getPlayer(players(0)).eval(newGame).get.isEliminated should be (false)
@@ -1067,7 +1067,7 @@ class EngineSpec extends FlatSpec with Matchers {
       p <- Game.currentPlayer
       result <- Game.processTurn(p.name, Baron, Some("BADPLAYER"), None)
       currentPlayer <- Game.currentPlayer
-    } yield (result._3, currentPlayer)
+    } yield (result, currentPlayer)
 
     val (newGame, (message, currentPlayer)) = playBaronOnBadPlayer(game)
 
@@ -1085,7 +1085,7 @@ class EngineSpec extends FlatSpec with Matchers {
       p <- Game.currentPlayer
       result <- Game.processTurn(p.name, Baron, Some(players(1)), None)
       currentPlayer <- Game.currentPlayer
-    } yield (result._3, currentPlayer)
+    } yield (result, currentPlayer)
 
     val (newGame, (message, currentPlayer)) = playBaronOnProtectedPlayer(game)
 
@@ -1103,7 +1103,7 @@ class EngineSpec extends FlatSpec with Matchers {
       p <- Game.currentPlayer
       result <- Game.processTurn(p.name, Baron, Some(players(1)), None)
       currentPlayer <- Game.currentPlayer
-    } yield (result._3, currentPlayer)
+    } yield (result, currentPlayer)
 
     val (newGame, (message, currentPlayer)) = playBaronOnEliminatedPlayer(game)
 
@@ -1122,7 +1122,7 @@ class EngineSpec extends FlatSpec with Matchers {
       _ <- Game.protectPlayer(players(3), true)
       result <- Game.processTurn(players(0), Baron, None, None)
       p <- Game.currentPlayer
-    } yield (p, result._3)
+    } yield (p, result)
 
     val (nextPlayer, result) = protectOrEliminateEveryoneThenPlay.eval(game)
     result.isRight should be (true)
@@ -1136,7 +1136,7 @@ class EngineSpec extends FlatSpec with Matchers {
     val game = Game(players)
     val (game1, result1) = Game.processTurn(players(0), Baron, None, None).apply(game)
     game1 should be (game)
-    result1._3.isLeft should be (true)
+    result1.isLeft should be (true)
   }
 
   behavior of "The handmaid card"
@@ -1150,7 +1150,7 @@ class EngineSpec extends FlatSpec with Matchers {
       p <- Game.currentPlayer
       result <- Game.processTurn(p.name, Handmaid, None, None)
       p1 <- Game.getPlayer(players(0))
-    } yield (p1.get, result._3)
+    } yield (p1.get, result)
 
     val (protectedPlayer, message) = playHandmaid.eval(game)
 
@@ -1170,7 +1170,7 @@ class EngineSpec extends FlatSpec with Matchers {
       p <- Game.currentPlayer
       result <- Game.processTurn(p.name, Prince, Some(players(1)), None)
       currentPlayer <- Game.currentPlayer
-    } yield (result._3, currentPlayer)
+    } yield (result, currentPlayer)
 
     val (newGame, (message, currentPlayer)) = playPrinceOnPlayer(game)
 
@@ -1190,7 +1190,7 @@ class EngineSpec extends FlatSpec with Matchers {
       p <- Game.currentPlayer
       result <- Game.processTurn(p.name, Prince, Some(players(1)), None)
       currentPlayer <- Game.currentPlayer
-    } yield (result._3, currentPlayer)
+    } yield (result, currentPlayer)
 
     val (newGame, (message, currentPlayer)) = playPrinceOnProtectedPlayer(game)
 
@@ -1208,7 +1208,7 @@ class EngineSpec extends FlatSpec with Matchers {
       p <- Game.currentPlayer
       result <- Game.processTurn(p.name, Prince, Some(players(1)), None)
       currentPlayer <- Game.currentPlayer
-    } yield (result._3, currentPlayer)
+    } yield (result, currentPlayer)
 
     val (newGame, (message, currentPlayer)) = playPrinceOnEliminatedPlayer(game)
 
@@ -1229,7 +1229,7 @@ class EngineSpec extends FlatSpec with Matchers {
       p2 <- Game.currentPlayer
       result2 <- Game.processTurn(players(0), Prince, Some(players(0)), None)
       p <- Game.currentPlayer
-    } yield (p, result._3, result2._3, p2)
+    } yield (p, result, result2, p2)
 
     val (newGame, (nextPlayer, result, result2, p2)) = protectOrEliminateEveryoneThenPlay(game)
     result.isLeft should be (true)
@@ -1248,7 +1248,7 @@ class EngineSpec extends FlatSpec with Matchers {
       p <- Game.currentPlayer
       result <- Game.processTurn(p.name, Prince, Some("BADPLAYER"), None)
       currentPlayer <- Game.currentPlayer
-    } yield (result._3, currentPlayer)
+    } yield (result, currentPlayer)
 
     val (newGame, (message, currentPlayer)) = playPrinceOnBadPlayer(game)
 
@@ -1268,7 +1268,7 @@ class EngineSpec extends FlatSpec with Matchers {
       result <- Game.processTurn(p.name, King, Some(players(1)), None)
       kingPlayer <- Game.getPlayer(players(0))
       currentPlayer <- Game.currentPlayer
-    } yield (result._3, kingPlayer.get, currentPlayer)
+    } yield (result, kingPlayer.get, currentPlayer)
 
     val (newGame, (message, kingPlayer, currentPlayer)) = playPrinceOnPlayer(game)
 
@@ -1289,7 +1289,7 @@ class EngineSpec extends FlatSpec with Matchers {
       p <- Game.currentPlayer
       result <- Game.processTurn(p.name, King, Some(players(1)), None)
       currentPlayer <- Game.currentPlayer
-    } yield (result._3, currentPlayer)
+    } yield (result, currentPlayer)
 
     val (newGame, (message, currentPlayer)) = playKingOnProtectedPlayer(game)
 
@@ -1307,7 +1307,7 @@ class EngineSpec extends FlatSpec with Matchers {
       p <- Game.currentPlayer
       result <- Game.processTurn(p.name, King, Some(players(1)), None)
       currentPlayer <- Game.currentPlayer
-    } yield (result._3, currentPlayer)
+    } yield (result, currentPlayer)
 
     val (newGame, (message, currentPlayer)) = playKingOnEliminatedPlayer(game)
 
@@ -1326,7 +1326,7 @@ class EngineSpec extends FlatSpec with Matchers {
       _ <- Game.protectPlayer(players(3), true)
       result <- Game.processTurn(players(0), King, None, None)
       p <- Game.currentPlayer
-    } yield (p, result._3)
+    } yield (p, result)
 
     val (nextPlayer, result) = protectOrEliminateEveryoneThenPlay.eval(game)
     result.isRight should be (true)
@@ -1343,7 +1343,7 @@ class EngineSpec extends FlatSpec with Matchers {
       p <- Game.currentPlayer
       result <- Game.processTurn(p.name, Priest, Some("BADPLAYER"), None)
       currentPlayer <- Game.currentPlayer
-    } yield (result._3, currentPlayer)
+    } yield (result, currentPlayer)
 
     val (newGame, (message, currentPlayer)) = playKingOnBadplayer(game)
 
@@ -1361,7 +1361,7 @@ class EngineSpec extends FlatSpec with Matchers {
     def tryToDiscardPrince = for {
       result <- Game.processTurn(players(0), Prince, Some(players(1)), None)
       p <- Game.currentPlayer
-    } yield (p, result._3)
+    } yield (p, result)
 
     val (nextPlayer, result) = tryToDiscardPrince.eval(game)
     result.isLeft should be (true)
@@ -1377,7 +1377,7 @@ class EngineSpec extends FlatSpec with Matchers {
     def tryToDiscardKing = for {
       result <- Game.processTurn(players(0), King, Some(players(1)), None)
       p <- Game.currentPlayer
-    } yield (p, result._3)
+    } yield (p, result)
 
     val (nextPlayer, result) = tryToDiscardKing.eval(game)
     result.isLeft should be (true)
@@ -1393,7 +1393,7 @@ class EngineSpec extends FlatSpec with Matchers {
     def discardCountess = for {
       result <- Game.processTurn(players(0), Countess, None, None)
       p <- Game.currentPlayer
-    } yield (p, result._3)
+    } yield (p, result)
 
     val (nextPlayer, result) = discardCountess.eval(game)
     result.isRight should be (true)
@@ -1412,7 +1412,7 @@ class EngineSpec extends FlatSpec with Matchers {
       result <- Game.processTurn(players(0), Princess, None, None)
       p <- Game.currentPlayer
       princessPlayer <- Game.getPlayer(players(0))
-    } yield (p, princessPlayer.get, result._3)
+    } yield (p, princessPlayer.get, result)
 
     val (nextPlayer, princessPlayer, result) = discardPrincess.eval(game)
     result.isRight should be (true)
@@ -1429,7 +1429,7 @@ class EngineSpec extends FlatSpec with Matchers {
       result <- Game.processTurn(players(0), Prince, Some(players(1)), None)
       p <- Game.currentPlayer
       eliminatedPlayer <- Game.getPlayer(players(1))
-    } yield (p, eliminatedPlayer.get, result._3)
+    } yield (p, eliminatedPlayer.get, result)
 
     val (nextPlayer, eliminatedPlayer, result) = forceDiscardofPrincess.eval(game)
     result.isRight should be (true)
@@ -1449,7 +1449,7 @@ class EngineSpec extends FlatSpec with Matchers {
       result <- Game.processTurn(players(0), Prince, Some(players(0)), None)
       p <- Game.currentPlayer
       eliminatedPlayer <- Game.getPlayer(players(0))
-    } yield (p, eliminatedPlayer.get, result._3)
+    } yield (p, eliminatedPlayer.get, result)
 
     val (nextPlayer, eliminatedPlayer, result) = forceDiscardofPrincess.eval(game)
     result.isRight should be (true)

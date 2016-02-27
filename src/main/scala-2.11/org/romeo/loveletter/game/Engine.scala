@@ -6,9 +6,24 @@ import scala.language.implicitConversions
 
 import scalaz.State
 
+case class Player(
+  name: String, //name must be unique among players in the game
+  hand: Seq[Card] = Nil,
+  isEliminated: Boolean = false,
+  isProtected: Boolean = false,
+  score: Int = 0){
+    override def toString: String = s"$name, cards:(${hand.map(_.name).mkString(", ")}), isElminated:$isEliminated, isProtected:$isProtected, score:$score"
+  }
+
+object Player {
+  implicit def orderingByMaxCard[A <: Player]: Ordering[A] =
+    Ordering.by(a => a.hand.max.value)
+}
+
 case class Game(
   players: Seq[Player],
   deck: Seq[Card] = Deck.cards,
+  burnCard: Seq[Card] = Nil,
   discard: List[Card] = Nil,
   visibleDiscard: Seq[Card] = Nil) {
   require(players.length >= 2, "Need at least 2 players")
@@ -84,9 +99,16 @@ object Game {
   }
 
   /**
-   * Removes the top card from the deck and returns it. The card will not be put in the discard pile
+   * Removes the top card from the deck and returns it. The card will be put in the burn pile
    */
   def burnCard = State[Game, Card] {
+    g: Game => (g.copy(deck = g.deck.tail, burnCard = Seq(g.deck.head)), g.deck.head)
+  }
+
+  /**
+   * Removes the top card from the deck and returns it. The card will not be put in the discard pile
+   */
+  def popTopCardFromDeck = State[Game, Card] {
     g: Game => (g.copy(deck = g.deck.tail), g.deck.head)
   }
 
@@ -99,7 +121,7 @@ object Game {
     def addToVisibleDiscard(card: Card): State[Game, Card] = State[Game, Card] {
       g: Game => (g.copy(visibleDiscard = g.visibleDiscard :+ card), card)
     }
-    burnCard.flatMap(addToVisibleDiscard).map(Seq(_))
+    popTopCardFromDeck.flatMap(addToVisibleDiscard).map(Seq(_))
   }
 
   /**
@@ -113,10 +135,27 @@ object Game {
    * Remove the top card from the deck and add it to a player's hand. Then return that player object
    */
   def drawCard(playerName: String): State[Game, Option[Player]] = for {
-    c <- burnCard
+    c <- popTopCardFromDeck
     player <- getPlayer(playerName)
     player2 <- updatePlayer(player.map(p => p.copy(hand = p.hand :+ c)))
   } yield player2
+
+  /**
+   * Remove the top card from the deck and add it to a player's hand. Then return that player object
+   */
+  def drawFromDeckOrBurnCard(playerName: String): State[Game, Option[Player]] = {
+    def popDeckOrBurnPile = State[Game, Card] {
+      (g: Game) => {
+        println(g)
+        if(g.deck.isEmpty) (g.copy(deck = g.burnCard.tail), g.burnCard.head) else (g.copy(deck = g.deck.tail), g.deck.head)
+      }
+    }
+    for {
+      c <- popDeckOrBurnPile
+      player <- getPlayer(playerName)
+      player2 <- updatePlayer(player.map(p => p.copy(hand = p.hand :+ c)))
+    } yield player2
+  }
 
   /**
    * replaces the player with the same name as the passed in player in the player list. Returns the new player
@@ -292,9 +331,9 @@ object Game {
             _ <- maybeDiscard(actionResult.isRight, p.name, discard)
             _ <- maybeEndTurn(actionResult.isRight)
             nextPlayer <- currentPlayer
-            _ <- maybeDrawCard(actionResult.isRight, nextPlayer.name)
             matchWinner <- checkMatchOver(r)
             gameWinner <- findWinner
+            _ <- maybeDrawCard(actionResult.isRight && matchWinner.isEmpty, nextPlayer.name)
           } yield (actionResult.right.map(m => {
             Seq[Option[Message]](Some(m),
               Some(s"It is ${nextPlayer.name}'s turn"),
@@ -315,16 +354,4 @@ object Game {
       g: Game => (g, g.players.diff(Seq(p)).forall(pp => pp.isEliminated || pp.isProtected))
     })
   }
-}
-
-case class Player(
-  name: String, //name must be unique among players in the game
-  hand: Seq[Card] = Nil,
-  isEliminated: Boolean = false,
-  isProtected: Boolean = false,
-  score: Int = 0)
-
-object Player {
-  implicit def orderingByMaxCard[A <: Player]: Ordering[A] =
-    Ordering.by(a => a.hand.max.value)
 }

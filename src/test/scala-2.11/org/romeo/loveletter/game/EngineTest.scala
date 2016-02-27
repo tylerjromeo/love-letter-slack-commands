@@ -1180,6 +1180,19 @@ class EngineSpec extends FlatSpec with Matchers {
     newGame.discard should contain (Guard)
   }
 
+  it should "cause the player to draw the burn card if they are targeted while there is nothing in the draw pile" in {
+    val game = Game(players=Seq(Player(name="Tyler", hand=Seq(Prince, Prince)), Player(name="Kevin", hand=Seq(Guard))),
+      deck=Nil,
+      burnCard=Seq(Princess)
+    )
+
+    val (newGame, results) = Game.processTurn("Tyler", Prince, Some("Kevin"), None)(new Random(1423))(game)
+
+    //because the burn card was a Princess, players(1) shoudl have drawn it and won the last round
+    results.isRight should be (true)
+    results.right.get.last.msg should be ("Kevin has won the match!")
+  }
+
   it should "fail if the targeted player is protected" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
     implicit val r = new Random(7) //seed 7 gives player 1 a prince, and player 2 a guard

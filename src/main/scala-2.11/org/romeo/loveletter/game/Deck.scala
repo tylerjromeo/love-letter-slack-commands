@@ -170,7 +170,7 @@ case object Prince extends Card {
             val cardToDiscard = (if(p.hand.length > 1) p.hand.diff(Seq(Prince)) else p.hand).head
             def discardThenDraw: State[Game, Either[Message, Message]] = for {
               discard <- Game.playerDiscard(p.name, cardToDiscard)
-              _ <- Game.drawCard(p.name)
+              _ <- Game.drawFromDeckOrBurnCard(p.name)
             } yield Right(s"${p.name} forced to discard a ${discard.head}")
             def discardPrincess: State[Game, Either[Message, Message]] = for {
               discard <- Game.playerDiscard(p.name, cardToDiscard)

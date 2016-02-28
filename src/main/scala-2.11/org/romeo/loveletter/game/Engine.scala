@@ -324,7 +324,7 @@ object Game {
         if (p.hand.length != 2) {
           Some(State.state(Left(new Private("It is not your turn")))): Option[State[Game, Either[Message, Seq[Message]]]]
         } else if(!p.hand.contains(discard)) {
-          Some(State.state(Left(new Private("you to not have that card")))): Option[State[Game, Either[Message, Seq[Message]]]]
+          Some(State.state(Left(new Private("you do not have that card")))): Option[State[Game, Either[Message, Seq[Message]]]]
         } else {
           Some(for {
             actionResult <- discard.doAction(p, targetName, guess)

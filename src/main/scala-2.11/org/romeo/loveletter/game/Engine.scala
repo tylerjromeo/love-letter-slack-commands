@@ -330,14 +330,14 @@ object Game {
             actionResult <- discard.doAction(p, targetName, guess)
             _ <- maybeDiscard(actionResult.isRight, p.name, discard)
             _ <- maybeEndTurn(actionResult.isRight)
-            nextPlayer <- currentPlayer
             matchWinner <- checkMatchOver(r)
+            nextPlayer <- currentPlayer
             gameWinner <- findWinner
             _ <- maybeDrawCard(actionResult.isRight && matchWinner.isEmpty, nextPlayer.name)
           } yield (actionResult.right.map(m => {
             Seq[Option[Message]](Some(m),
-              Some(s"It is ${nextPlayer.name}'s turn"),
               matchWinner.map(p => s"${p.name} has won the match!"),
+              Some(s"It is ${nextPlayer.name}'s turn"),
               gameWinner.map(p => s"${p.name} has won the game!")
             ).flatten
           }))): Option[State[Game, Either[Message, Seq[Message]]]]

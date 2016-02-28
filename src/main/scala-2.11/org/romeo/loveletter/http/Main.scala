@@ -113,11 +113,13 @@ object Main extends App with SimpleRoutingApp {
     params(0) match {
       case "start" if (params.length >= 3 && params.length <= 5)=> gameManager.startGame(channelName, params.tail) match {
         case Left(message) => SlackResponse(true, message)
-        case Right(_) => SlackResponse(false, "Game started!")
+        case Right(game) => {
+          val player1 = Game.currentPlayer.eval(game).name
+          SlackResponse(false, s"Game started!\nIt is $player1's turn")
+        }
       }
       case "quit" => {
-        gameManager.abortGame(channelName)
-        SlackResponse(false, "Game ended!")
+        SlackResponse(false, gameManager.abortGame(channelName).merge)
       }
       case "status" => SlackResponse(false, gameManager.getGameInfo(channelName))
       case "hand" => SlackResponse(true, gameManager.getHandInfo(channelName, userName))

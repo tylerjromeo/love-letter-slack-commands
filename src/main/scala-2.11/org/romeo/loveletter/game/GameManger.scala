@@ -18,8 +18,13 @@ class GameManager(val datastore: Datastore[Game])(implicit val r: Random) {
     }
   }
 
-  def abortGame(gameId: String): Unit = {
-    datastore.remove(gameId)
+  def abortGame(gameId: String): Either[String, String] = {
+    if(datastore.exists(gameId)) {
+      datastore.remove(gameId)
+      Right("Game ended!")
+    } else {
+      Left("Game not found")
+    }
   }
 
   def takeTurn(gameId: String, player: String, cardName: String, targetPlayer: Option[String], cardGuess: Option[String]): Either[Message, Seq[Message]] = {

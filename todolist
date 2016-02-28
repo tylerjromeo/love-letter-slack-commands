@@ -3,3 +3,7 @@ notify player it's their turn at start of match
 fix private message responses
 
 end the game when it's done
+
+tell people what is in their hand at the beginning of their turn
+
+bug: "cant discard X with countess should be a private message"

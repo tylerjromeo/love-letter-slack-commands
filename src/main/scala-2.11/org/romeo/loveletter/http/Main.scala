@@ -9,18 +9,44 @@ package org.romeo.loveletter.http
 import scala.language.implicitConversions
 import scala.util.Random
 import akka.actor.ActorSystem
+import akka.util.Timeout
+import akka.pattern.ask
+import akka.io.IO
 import spray.http.{MediaTypes, StatusCodes}
 import spray.json._
 import spray.routing.SimpleRoutingApp
+import scala.concurrent.duration._
+import scala.concurrent.Future
 import scala.util.{Properties, Success, Failure, Try}
 import org.romeo.loveletter.persistence.MemoryDataStore
+import spray.can.Http
+import spray.http._
+import spray.client.pipelining._
 import spray.httpx.SprayJsonSupport
 import spray.json.RootJsonFormat
-
 import org.romeo.loveletter.game._
 import org.romeo.loveletter.game.Game._
 
+
 case class SlackResponse(privateMessage: Boolean, text: String)
+
+case class MultiSlackResponse(pubMessages: SlackResponse, privMessages: SlackResponse, isGameOver: Boolean = false) {
+  def isPrivateOnly: Boolean = this.pubMessages.text.isEmpty
+  def isPublicOnly: Boolean = this.privMessages.text.isEmpty
+}
+
+object MultiSlackResponse {
+  def fromSlackResponses(responses: Seq[SlackResponse]): MultiSlackResponse = {
+    def isGameOver(sr: SlackResponse) = sr.text.endsWith(" has won the game!") //TODO: refactor the engine to do this in a less ugly way
+    responses.foldLeft(MultiSlackResponse(SlackResponse(false, ""), SlackResponse(true, ""), false))((msr, sr) => {
+      if(sr.privateMessage) {
+        MultiSlackResponse(msr.pubMessages, SlackResponse(true, s"${msr.privMessages.text}\n${sr.text}"), msr.isGameOver || isGameOver(sr))
+      } else {
+        MultiSlackResponse(SlackResponse(false, s"${msr.pubMessages.text}\n${sr.text}"), msr.privMessages, msr.isGameOver || isGameOver(sr))
+      }
+    })
+  }
+}
 
 object SlackResponseJsonSupport extends DefaultJsonProtocol with SprayJsonSupport {
   implicit object SlackResponseJsonFormats extends RootJsonFormat[SlackResponse] {
@@ -44,10 +70,19 @@ object SlackResponseJsonSupport extends DefaultJsonProtocol with SprayJsonSuppor
 
 object Main extends App with SimpleRoutingApp {
   import SlackResponseJsonSupport._
+  import scala.concurrent.ExecutionContext.Implicits.global
   implicit def messageToSlackResponseImplicit(m: Message) = {
     if(m.isInstanceOf[Private]) SlackResponse(true, m.msg) else SlackResponse(false, m.msg)
   }
+  implicit def SlackResponseToMultiSlackResponse(sr: SlackResponse) = {
+    if(sr.privateMessage) {
+      MultiSlackResponse(SlackResponse(false, ""), sr, false)
+    } else {
+      MultiSlackResponse(sr, SlackResponse(true, ""), false)
+    }
+  }
   implicit val system = ActorSystem("my-system")
+  implicit val timeout: Timeout = Timeout(15.seconds)
 
   val gameManager = new GameManager(new MemoryDataStore[Game]())(new Random())
 
@@ -65,13 +100,15 @@ object Main extends App with SimpleRoutingApp {
                   |Source for bot at: https://github.com/tylerjromeo/love-letter-slack-commands
                 """.stripMargin
 
-  def runCommand(text: String, channelName: String, userName: String): SlackResponse = {
-    def playCard(cardName: String, target: Option[String], guess: Option[String]): SlackResponse = {
-        gameManager.takeTurn(channelName, userName, cardName, target, guess) match {
-          case Left(message) => message
-          case Right(messages) => messages.foldLeft(SlackResponse(false, ""))((sm, m) => SlackResponse(false, sm.text + "\n" + m.msg))
-        }
+  def runCommand(text: String, channelName: String, userName: String, responseUrl: String): MultiSlackResponse = {
+    def playCard(channelName: String, cardName: String, target: Option[String], guess: Option[String]): MultiSlackResponse = {
+      val msr = gameManager.takeTurn(channelName, userName, cardName, target, guess) match {
+        case Left(message) => SlackResponseToMultiSlackResponse(message)
+        case Right(messages) => MultiSlackResponse.fromSlackResponses(messages.map(messageToSlackResponseImplicit(_)))
       }
+      if(msr.isGameOver) gameManager.abortGame(channelName)
+      msr
+    }
     val params = text.split("\\s+")
     params(0) match {
       case "start" if (params.length >= 3 && params.length <= 5)=> gameManager.startGame(channelName, params.tail) match {
@@ -88,13 +125,13 @@ object Main extends App with SimpleRoutingApp {
         val cardName = params(1)
         val target = if(params.isDefinedAt(2)) Some(params(2)) else None
         val guess = if(params.isDefinedAt(3)) Some(params(3)) else None
-        playCard(cardName, target, guess)
+        playCard(channelName, cardName, target, guess)
       }
       case x if(Deck.isCardName(x)) => {
         val cardName = params(0)
         val target = if(params.isDefinedAt(1)) Some(params(1)) else None
         val guess = if(params.isDefinedAt(2)) Some(params(2)) else None
-        playCard(cardName, target, guess)
+        playCard(channelName, cardName, target, guess)
       }
       case _ => SlackResponse(true, helpText)
     }
@@ -107,7 +144,20 @@ object Main extends App with SimpleRoutingApp {
           (token, teamId, teamDomain, channelId, channelName, userId, userName, command, text, responseUrl) =>
             validate(token == teamToken, "Request token does not match team") {
             respondWithMediaType(MediaTypes.`application/json`) {
-              complete(runCommand(text, channelName, userName))
+              complete{
+                val responses = runCommand(text, channelName, userName, responseUrl)
+                //if the responses are only of one type, respond with it.
+                //Otherwise respond with the public message and send the private over the url
+                if(responses.isPrivateOnly) {
+                  responses.privMessages
+                } else if(responses.isPublicOnly) {
+                  responses.pubMessages
+                } else {
+                  val pipeline: HttpRequest => Future[HttpResponse] = sendReceive
+                  pipeline(Post(Uri(responseUrl), responses.privMessages))
+                  responses.pubMessages
+                }
+              }
             }
           }
         }

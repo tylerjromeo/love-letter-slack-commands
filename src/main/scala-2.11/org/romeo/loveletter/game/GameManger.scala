@@ -56,6 +56,10 @@ class GameManager(val datastore: Datastore[Game])(implicit val r: Random) {
     }).getOrElse(s"No game with id $gameId exists")
   }
 
+  def getCurrentPlayerName(gameId: String): String = {
+    datastore.get(gameId).map(Game.currentPlayer.eval(_).name).getOrElse(s"No game with id $gameId exists")
+  }
+
   def getHandInfo(gameId: String, playerName: String): String = {
     datastore.get(gameId).flatMap(game => {
       val player = Game.getPlayer(playerName).eval(game)

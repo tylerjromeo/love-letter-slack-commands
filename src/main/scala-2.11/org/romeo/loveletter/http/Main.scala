@@ -100,11 +100,25 @@ object Main extends App with SimpleRoutingApp {
                   |Source for bot at: https://github.com/tylerjromeo/love-letter-slack-commands
                 """.stripMargin
 
+  //store response urls per player-channel, so we can tell them their hand at the beginning of each turn
+  val responseUrlMap = scala.collection.mutable.Map[String, String]()
+
+  def sendToSlackUrl(responseUrl: String, message: SlackResponse): Unit = {
+    val pipeline: HttpRequest => Future[HttpResponse] = sendReceive
+    pipeline(Post(Uri(responseUrl), message))
+  }
+
   def runCommand(text: String, channelName: String, userName: String, responseUrl: String): MultiSlackResponse = {
     def playCard(channelName: String, cardName: String, target: Option[String], guess: Option[String]): MultiSlackResponse = {
       val msr = gameManager.takeTurn(channelName, userName, cardName, target, guess) match {
         case Left(message) => SlackResponseToMultiSlackResponse(message)
-        case Right(messages) => MultiSlackResponse.fromSlackResponses(messages.map(messageToSlackResponseImplicit(_)))
+        case Right(messages) => {
+          val nextPlayer = gameManager.getCurrentPlayerName(channelName)
+          responseUrlMap.get(channelName + nextPlayer).foreach(url => {
+            sendToSlackUrl(url, SlackResponse(true, gameManager.getHandInfo(channelName, nextPlayer)))
+          })
+          MultiSlackResponse.fromSlackResponses(messages.map(messageToSlackResponseImplicit(_)))
+        }
       }
       if(msr.isGameOver) gameManager.abortGame(channelName)
       msr
@@ -146,7 +160,8 @@ object Main extends App with SimpleRoutingApp {
           (token, teamId, teamDomain, channelId, channelName, userId, userName, command, text, responseUrl) =>
             validate(token == teamToken, "Request token does not match team") {
             respondWithMediaType(MediaTypes.`application/json`) {
-              complete{
+              complete {
+                responseUrlMap.put(channelName + userName, responseUrl)
                 val responses = runCommand(text, channelName, userName, responseUrl)
                 //if the responses are only of one type, respond with it.
                 //Otherwise respond with the public message and send the private over the url
@@ -155,8 +170,7 @@ object Main extends App with SimpleRoutingApp {
                 } else if(responses.isPublicOnly) {
                   responses.pubMessages
                 } else {
-                  val pipeline: HttpRequest => Future[HttpResponse] = sendReceive
-                  pipeline(Post(Uri(responseUrl), responses.privMessages))
+                  sendToSlackUrl(responseUrl, responses.privMessages)
                   responses.pubMessages
                 }
               }

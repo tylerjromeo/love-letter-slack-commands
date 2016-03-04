@@ -146,7 +146,6 @@ object Game {
   def drawFromDeckOrBurnCard(playerName: String): State[Game, Option[Player]] = {
     def popDeckOrBurnPile = State[Game, Card] {
       (g: Game) => {
-        println(g)
         if(g.deck.isEmpty) (g.copy(deck = g.burnCard.tail), g.burnCard.head) else (g.copy(deck = g.deck.tail), g.deck.head)
       }
     }

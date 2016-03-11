@@ -1,1 +1,1 @@
-web: target/universal/stage/bin/lidl-json-store
+web: target/universal/stage/bin/love-letter-bot

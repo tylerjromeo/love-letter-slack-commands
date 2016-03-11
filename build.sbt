@@ -1,6 +1,6 @@
 import com.typesafe.sbt.packager.archetypes.JavaAppPackaging
 
-name := "love-letter-slack-commands"
+name := "love-letter-bot"
 
 version := "1.0"
 

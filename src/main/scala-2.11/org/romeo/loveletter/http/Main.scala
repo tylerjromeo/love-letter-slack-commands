@@ -153,7 +153,7 @@ object Main extends App with SimpleRoutingApp {
     }
   }
 
-  startServer(interface = "localhost", port = Properties.envOrElse("PORT", "8080").toInt) {
+  startServer(interface = "0.0.0.0", port = Properties.envOrElse("PORT", "8080").toInt) {
     pathSingleSlash {
       post {
         formFields('token, 'team_id, 'team_domain, 'channel_id, 'channel_name, 'user_id, 'user_name, 'command, 'text, 'response_url) {

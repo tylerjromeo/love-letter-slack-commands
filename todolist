@@ -4,3 +4,5 @@ tell people what is in their hand at the beginning of their turn
 it should say the name of the player and what they discarded at the end of each turn in addition to the effects
 
 /love HAMMAID
+handle @ signs in names
+don't let guard/priest et al. target yourself

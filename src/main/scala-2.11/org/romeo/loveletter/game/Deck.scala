@@ -171,7 +171,7 @@ case object Prince extends Card {
             def discardThenDraw: State[Game, Either[Message, Message]] = for {
               discard <- Game.playerDiscard(p.name, cardToDiscard)
               _ <- Game.drawFromDeckOrBurnCard(p.name)
-            } yield Right(s"${p.name} forced to discard a ${discard.head}")
+            } yield Right(s"${p.name} forced to discard a ${discard.head.name}")
             def discardPrincess: State[Game, Either[Message, Message]] = for {
               discard <- Game.playerDiscard(p.name, cardToDiscard)
               _ <- Game.eliminatePlayer(p.name, true)

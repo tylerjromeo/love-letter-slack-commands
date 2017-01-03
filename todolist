@@ -6,3 +6,5 @@ it should say the name of the player and what they discarded at the end of each 
 /love HAMMAID
 handle @ signs in names
 don't let guard/priest et al. target yourself
+show comparison of cards at the end of the match
+print game status at the beginning of the match

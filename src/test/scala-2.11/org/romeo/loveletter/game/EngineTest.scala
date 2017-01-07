@@ -726,7 +726,7 @@ class EngineSpec extends FlatSpec with Matchers {
     val winners = makeSomeoneWinnerThenTakeTurn.eval(game)
 
     winners.isRight should be (true)
-    winners.right.get.last.msg should be (s"${players(0)} has won the match!")
+    winners.right.get.map(_.msg) should contain (s"${players(0)} has won the match!")
   }
 
   it should "start a new match if there is a winner" in {
@@ -1190,7 +1190,7 @@ class EngineSpec extends FlatSpec with Matchers {
 
     //because the burn card was a Princess, players(1) shoudl have drawn it and won the last round
     results.isRight should be (true)
-    results.right.get.last.msg should be ("Kevin has won the match!")
+    results.right.get.map(_.msg) should contain ("Kevin has won the match!")
   }
 
   it should "fail if the targeted player is protected" in {

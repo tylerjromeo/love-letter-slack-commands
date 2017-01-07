@@ -333,13 +333,13 @@ object Game {
             nextPlayer <- currentPlayer
             gameWinner <- findWinner
             _ <- maybeDrawCard(actionResult.isRight && matchWinner.isEmpty, nextPlayer.name)
-          } yield (actionResult.right.map(m => {
+          } yield actionResult.right.map(m => {
             Seq[Option[Message]](Some(m),
               matchWinner.map(p => s"${p.name} has won the match!"),
               Some(s"It is ${nextPlayer.name}'s turn"),
               gameWinner.map(p => s"${p.name} has won the game!")
             ).flatten
-          }))): Option[State[Game, Either[Message, Seq[Message]]]]
+          })): Option[State[Game, Either[Message, Seq[Message]]]]
         }
       }).getOrElse(State.state(Left(new Private("Player not found or not in game")))))
   }

@@ -8,3 +8,7 @@ handle @ signs in names
 don't let guard/priest et al. target yourself
 show comparison of cards at the end of the match
 print game status at the beginning of the match
+
+refactor slackresponse into two types: private and public. don't use ugly boolean thing anymore
+
+move team token out of the repo, you dang idiot

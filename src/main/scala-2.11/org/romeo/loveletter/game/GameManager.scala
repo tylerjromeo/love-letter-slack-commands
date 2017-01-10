@@ -8,9 +8,9 @@ import org.romeo.loveletter.persistence.Datastore
 
 class GameManager(val datastore: Datastore[Game])(implicit val r: Random) {
 
-  def startGame(gameId: String, players:Seq[String]): Either[String, Game] = {
-    if(datastore.exists(gameId)) {
-      Left(s"Game with id ${gameId} already exists!")
+  def startGame(gameId: String, players: Seq[String]): Either[String, Game] = {
+    if (datastore.exists(gameId)) {
+      Left(s"Game with id $gameId already exists!")
     } else {
       val game = Game.startMatch(None).exec(Game(players))
       datastore.put(gameId, game)
@@ -19,7 +19,7 @@ class GameManager(val datastore: Datastore[Game])(implicit val r: Random) {
   }
 
   def abortGame(gameId: String): Either[String, String] = {
-    if(datastore.exists(gameId)) {
+    if (datastore.exists(gameId)) {
       datastore.remove(gameId)
       Right("Game ended!")
     } else {
@@ -30,11 +30,11 @@ class GameManager(val datastore: Datastore[Game])(implicit val r: Random) {
   def takeTurn(gameId: String, player: String, cardName: String, targetPlayer: Option[String], cardGuess: Option[String]): Either[Message, Seq[Message]] = {
     Deck.getCardByName(cardName).map(card =>
       datastore.get(gameId).map(game => {
-        val (newGame, result) = Game.processTurn(player, card, targetPlayer, cardGuess.flatMap(Deck.getCardByName(_))).apply(game)
+        val (newGame, result) = Game.processTurn(player, card, targetPlayer, cardGuess.flatMap(Deck.getCardByName)).apply(game)
         datastore.put(gameId, newGame)
         result
-      }).getOrElse(Left(new Private("Game not found")))
-    ).getOrElse(Left(new Private(s"$cardName doesn't exist in the game")))
+      }).getOrElse(Left(Private("Game not found")))
+    ).getOrElse(Left(Private(s"$cardName doesn't exist in the game")))
   }
 
   def getGameInfo(gameId: String): String = {
@@ -47,9 +47,9 @@ class GameManager(val datastore: Datastore[Game])(implicit val r: Random) {
         cardsLeft <- State[Game, Int](g => (g, g.deck.length))
       } yield (currentPlayer.name, allPlayers, topDiscard.map(_.name), visibleDiscard, cardsLeft)).eval(game)
       Seq(
-        s"It is ${currentPlayer}'s turn",
+        s"It is $currentPlayer's turn",
         s"There are $cardsLeft cards in the deck",
-        if(!visibleDiscard.isEmpty) s"${visibleDiscard.map(_.name).mkString(", ")} are visibly discarded" else "There are no visible burn cards",
+        if (visibleDiscard.nonEmpty) s"${visibleDiscard.map(_.name).mkString(", ")} are visibly discarded" else "There are no visible burn cards",
         topDiscard.map(c => s"the discard pile has a $c on top").getOrElse("The discard pile is empty"),
         allPlayers.map(p => s"${p.name} has ${p.score} points").mkString("\n")
       ).mkString("\n")

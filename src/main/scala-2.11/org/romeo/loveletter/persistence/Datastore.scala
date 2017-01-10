@@ -10,14 +10,17 @@ import scala.collection.mutable
   */
 trait Datastore[A] {
   def exists(key: String): Boolean
+
   def get(key: String): Option[A]
+
   def put(key: String, value: A): Option[A]
+
   def remove(key: String): Unit
 }
 
 class MemoryDataStore[A] extends Datastore[A] {
 
-  var map: scala.collection.mutable.Map[String, A] = new mutable.HashMap[String, A]()
+  val map: scala.collection.mutable.Map[String, A] = new mutable.HashMap[String, A]()
 
   override def exists(key: String): Boolean = map.contains(key)
 

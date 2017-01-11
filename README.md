@@ -1,4 +1,5 @@
 # Love Letter Slack Commands
+[![Build Status](https://travis-ci.org/tylerjromeo/love-letter-slack-commands.svg?branch=master)](https://travis-ci.org/tylerjromeo/love-letter-slack-commands)
 
 A game engine and interface for playing [Love Letter](https://www.alderac.com/tempest/love-letter/) through a Slack.
 

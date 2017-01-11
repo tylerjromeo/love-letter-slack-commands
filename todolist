@@ -12,3 +12,7 @@ print game status at the beginning of the match
 refactor slackresponse into two types: private and public. don't use ugly boolean thing anymore
 
 move team token out of the repo, you dang idiot
+
+auto deploy to heroku
+
+move this todo list to github issues

@@ -2,13 +2,28 @@ package org.romeo.loveletter.cli.Main
 
 import java.lang.System
 
+import org.romeo.loveletter.game.{Game, GameManager}
+import org.romeo.loveletter.persistence.MemoryDataStore
+
 import scala.io.StdIn
+import scala.util.Random
 
 /**
   * Created by tylerromeo on 1/13/17.
   */
 object Main extends App {
-  stdin foreach processCommand
+  val gameId = "cli"
+  implicit val random = new Random()
+  val gameManager = new GameManager(new MemoryDataStore())
+  var gameInstance: Option[Game] = None
+  stdin foreach { command =>
+    processCommand(command)
+    gameInstance foreach { g =>
+      val currentPlayer = Game.currentPlayer.eval(g)
+      println(s"It is ${currentPlayer.name}'s turn")
+      println(s"Your hand:\n${currentPlayer.hand.mkString("\n")}")
+    }
+  }
 
   def stdin: Stream[String] = StdIn.readLine("Enter Command:") match {
     case s if s == null => Stream.empty
@@ -50,7 +65,15 @@ object Main extends App {
     println(help)
   }
 
-  def startGame(players: List[String]): Unit = ???
+  def startGame(players: List[String]): Unit = {
+    gameManager.startGame(gameId, players) match {
+      case Left(m) => println(s"Could not start game: $m")
+      case Right(game) => {
+        gameInstance = Some(game)
+        println(s"Game started")
+      }
+    }
+  }
 
   def showHand(): Unit = ???
 

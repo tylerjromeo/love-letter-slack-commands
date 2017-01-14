@@ -17,16 +17,27 @@ object Main extends App {
 
   def processCommand(s: String): Unit = {
     val split = s.split("""\s+""")
-    val (overridePlayer, args) =
+    val (overridePlayer, rest) =
       if(split(0).startsWith("(") && split(0).endsWith(")")) {
         (Some(split(0)), split.tail.toList)
       } else {
         (None, split.toList)
       }
 
-    args match {
-      case command :: _ if command == "exit" => sys.exit(0)
+    rest match {
       case command :: _ if command == "help" => printHelp()
+      case command :: args if command == "start" => startGame(players = args)
+      case command :: _ if command == "quit" => sys.exit(0)
+      case command :: _ if command == "hand" => showHand(overridePlayer = overridePlayer)
+      case command :: _ if command == "status" => showStatus()
+      case command :: cardName :: args if command == "play" || command == "discard" => {
+        val target = args.headOption
+        val guess = if(args.size >= 2) Some(args(1)) else None
+        playCard(overridePlayer = overridePlayer,
+          card = cardName,
+          target = target,
+          guess = guess)
+      }
       case _ => printHelp()
     }
   }
@@ -47,5 +58,13 @@ object Main extends App {
       """.stripMargin
     println(help)
   }
+
+  def startGame(players: List[String]): Unit = ???
+
+  def showHand(overridePlayer: Option[String]): Unit = ???
+
+  def showStatus(): Unit = ???
+
+  def playCard(overridePlayer: Option[String], card: String, target: Option[String], guess: Option[String]):Unit = ???
 
 }

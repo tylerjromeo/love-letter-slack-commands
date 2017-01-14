@@ -15,13 +15,15 @@ object Main extends App {
   val gameId = "cli"
   implicit val random = new Random()
   val gameManager = new GameManager(new MemoryDataStore())
-  var gameInstance: Option[Game] = None
+  var gameStarted: Boolean = false
   stdin foreach { command =>
     processCommand(command)
-    gameInstance foreach { g =>
-      val currentPlayer = Game.currentPlayer.eval(g)
-      println(s"It is ${currentPlayer.name}'s turn")
-      println(s"Your hand:\n${currentPlayer.hand.mkString("\n")}")
+    if (gameStarted) {
+      val gameInfo = gameManager.getGameInfo(gameId)
+      val currentPlayer = gameManager.getCurrentPlayerName(gameId)
+      val playersHand = gameManager.getHandInfo(gameId, currentPlayer)
+      println(gameInfo)
+      println(s"Your hand:\n$playersHand")
     }
   }
 
@@ -33,11 +35,6 @@ object Main extends App {
   def processCommand(s: String): Unit = {
     val split = s.split("""\s+""")
     split.toList match {
-      case command :: _ if command == "help" => printHelp()
-      case command :: args if command == "start" => startGame(players = args)
-      case command :: _ if command == "quit" => sys.exit(0)
-      case command :: _ if command == "hand" => showHand()
-      case command :: _ if command == "status" => showStatus()
       case command :: cardName :: args if command == "play" || command == "discard" => {
         val target = args.headOption
         val guess = if(args.size >= 2) Some(args(1)) else None
@@ -45,6 +42,9 @@ object Main extends App {
           target = target,
           guess = guess)
       }
+      case command :: args if command == "start" => startGame(players = args)
+      case command :: _ if command == "quit" => sys.exit(0)
+      case command :: _ if command == "help" => printHelp()
       case _ => printHelp()
     }
   }
@@ -56,8 +56,6 @@ object Main extends App {
         |`help` to get this help
         |`start [player names]` to start a new game
         |`quit` to end the game
-        |`hand` to see your hand
-        |`status` to see all available information on the board
         |`play [card name] [?target] [?guess]` to play a card. (play can be omitted)
         |`discard` is equivalent to `play`
         |Source for bot at: https://github.com/tylerjromeo/love-letter-slack-commands
@@ -69,15 +67,11 @@ object Main extends App {
     gameManager.startGame(gameId, players) match {
       case Left(m) => println(s"Could not start game: $m")
       case Right(game) => {
-        gameInstance = Some(game)
+        gameStarted = true
         println(s"Game started")
       }
     }
   }
-
-  def showHand(): Unit = ???
-
-  def showStatus(): Unit = ???
 
   def playCard(card: String, target: Option[String], guess: Option[String]):Unit = ???
 

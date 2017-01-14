@@ -16,9 +16,17 @@ object Main extends App {
   }
 
   def processCommand(s: String): Unit = {
-    s match {
-      case s if s == "exit" => sys.exit(0)
-      case "help" => printHelp()
+    val split = s.split("""\s+""")
+    val (overridePlayer, args) =
+      if(split(0).startsWith("(") && split(0).endsWith(")")) {
+        (Some(split(0)), split.tail.toList)
+      } else {
+        (None, split.toList)
+      }
+
+    args match {
+      case command :: _ if command == "exit" => sys.exit(0)
+      case command :: _ if command == "help" => printHelp()
       case _ => printHelp()
     }
   }

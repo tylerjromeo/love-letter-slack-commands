@@ -27,7 +27,7 @@ object Main extends App {
     }
   }
 
-  def stdin: Stream[String] = StdIn.readLine("Enter Command:") match {
+  def stdin: Stream[String] = StdIn.readLine("----------\nEnter Command:") match {
     case s if s == null => Stream.empty
     case s => s #:: stdin
   }
@@ -37,7 +37,7 @@ object Main extends App {
     split.toList match {
       case command :: cardName :: args if command == "play" || command == "discard" => {
         val target = args.headOption
-        val guess = if(args.size >= 2) Some(args(1)) else None
+        val guess = if (args.size >= 2) Some(args(1)) else None
         playCard(card = cardName,
           target = target,
           guess = guess)
@@ -73,6 +73,11 @@ object Main extends App {
     }
   }
 
-  def playCard(card: String, target: Option[String], guess: Option[String]):Unit = ???
+  def playCard(card: String, target: Option[String], guess: Option[String]): Unit = {
+    gameManager.takeTurn(gameId, gameManager.getCurrentPlayerName(gameId), card, target, guess) match {
+      case Left(m) => println(s"Error: ${m.msg}")
+      case Right(m) => println(m.map(_.msg).mkString("\n"))
+    }
+  }
 
 }

@@ -1,6 +1,5 @@
 package org.romeo.loveletter.game
 
-import scala.util.Random
 import scala.collection.immutable.List
 import scala.language.implicitConversions
 
@@ -29,6 +28,11 @@ case class Game(
   require(players.length >= 2, "Need at least 2 players")
   require(players.length <= 4, "No more than 4 players")
 }
+
+case class Randomizer(
+                       shuffleDeck: (Seq[Card]) => Seq[Card],
+                       choosePlayer: (Seq[Player]) => Player
+                     )
 
 trait GameState
 
@@ -98,9 +102,9 @@ object Game {
   /**
     * Puts the contents of the deck in random order, and returns the deck
     */
-  def shuffle(implicit r: Random): State[Game, Seq[Card]] = State[Game, Seq[Card]] {
+  def shuffle(implicit r: Randomizer): State[Game, Seq[Card]] = State[Game, Seq[Card]] {
     g: Game => {
-      val newDeck = r.shuffle(g.deck)
+      val newDeck = r.shuffleDeck(g.deck)
       (g.copy(deck = newDeck), newDeck)
     }
   }
@@ -108,10 +112,10 @@ object Game {
   /**
     * Starts a new match with the game's players. Throws away the old hand and discard states
     */
-  def newMatch(firstPlayer: Option[String], r: Random): State[Game, Unit] = State[Game, Unit] {
+  def newMatch(firstPlayer: Option[String])(implicit r: Randomizer): State[Game, Unit] = State[Game, Unit] {
     g: Game => {
       val freshPlayers = g.players.map(p => Player(name = p.name, score = p.score))
-      val firstPlayerOrRandom = firstPlayer.getOrElse(r.shuffle(freshPlayers).head.name)
+      val firstPlayerOrRandom = firstPlayer.getOrElse(r.choosePlayer(freshPlayers).name)
       val splitPlayers = freshPlayers.splitAt(freshPlayers.indexWhere(_.name == firstPlayerOrRandom))
       (Game(splitPlayers._2 ++ splitPlayers._1), {})
     }
@@ -239,7 +243,7 @@ object Game {
   /**
     * begins a new match by restarting the deck, burning, dealing, and drawing a card for the first player
     */
-  def startMatch(firstPlayer: Option[String] = None)(implicit r: Random): State[Game, Unit] = {
+  def startMatch(firstPlayer: Option[String] = None)(implicit r: Randomizer): State[Game, Unit] = {
     def burn3VisibleIfTwoPlayer = State[Game, Seq[Card]] {
       g: Game =>
         if (g.players.length == 2) {
@@ -260,8 +264,8 @@ object Game {
     }
 
     for {
-      _ <- newMatch(firstPlayer, r)
-      _ <- shuffle(r)
+      _ <- newMatch(firstPlayer)
+      _ <- shuffle
       _ <- burnCard
       _ <- burn3VisibleIfTwoPlayer
       _ <- dealFirstCards
@@ -312,10 +316,10 @@ object Game {
     * Checks if the match has a winner, If so, award them a point, return the player, and restart the match. Otherwise return none
     * Should be called at the end of each turn during game processing
     */
-  def checkMatchOver(implicit r: Random): State[Game, Option[Player]] = {
+  def checkMatchOver(implicit r: Randomizer): State[Game, Option[Player]] = {
     findMatchWinner.flatMap(
       _.map(p => awardPoint(p.name).
-        flatMap(_ => startMatch(Some(p.name))(r)).
+        flatMap(_ => startMatch(Some(p.name))).
         map(_ => Some(p): Option[Player])).
         getOrElse(State.state(None)))
   }
@@ -332,7 +336,7 @@ object Game {
                   discard: Card,
                   targetName: Option[String] = None,
                   guess: Option[Card] = None)
-                 (implicit r: Random): State[Game, Either[Message, Seq[Message]]] = {
+                 (implicit r: Randomizer): State[Game, Either[Message, Seq[Message]]] = {
 
     def maybeDiscard(b: Boolean, name: String, card: Card): State[Game, _] = if (b) playerDiscard(name, card) else State.state(None)
 

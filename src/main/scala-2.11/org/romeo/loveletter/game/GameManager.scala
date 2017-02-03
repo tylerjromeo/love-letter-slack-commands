@@ -6,7 +6,12 @@ import scalaz.State
 import org.romeo.loveletter.game.Game._
 import org.romeo.loveletter.persistence.Datastore
 
-class GameManager(val datastore: Datastore[Game])(implicit val r: Random) {
+class GameManager(val datastore: Datastore[Game], rand: Random) {
+
+  implicit val r: Randomizer = Randomizer(
+    shuffleDeck = (s: Seq[Card]) => rand.shuffle(s),
+    choosePlayer = (s: Seq[Player]) => rand.shuffle(s).head
+  )
 
   def startGame(gameId: String, players: Seq[String]): Either[String, Game] = {
     if (datastore.exists(gameId)) {

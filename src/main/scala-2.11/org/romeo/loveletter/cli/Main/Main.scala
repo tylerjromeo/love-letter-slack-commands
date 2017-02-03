@@ -13,8 +13,7 @@ import scala.util.Random
   */
 object Main extends App {
   val gameId = "cli"
-  implicit val random = new Random()
-  val gameManager = new GameManager(new MemoryDataStore())
+  val gameManager = new GameManager(new MemoryDataStore(), new Random())
   var gameStarted: Boolean = false
   stdin foreach { command =>
     processCommand(command)

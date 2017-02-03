@@ -337,6 +337,7 @@ object Game {
                   targetName: Option[String] = None,
                   guess: Option[Card] = None)
                  (implicit r: Randomizer): State[Game, Either[Message, Seq[Message]]] = {
+    //TODO: the return messages should be wrapped in types that indicate the state of the game. i.e. win, match over, in progress, error etc
 
     def maybeDiscard(b: Boolean, name: String, card: Card): State[Game, _] = if (b) playerDiscard(name, card) else State.state(None)
 

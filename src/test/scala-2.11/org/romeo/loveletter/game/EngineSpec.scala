@@ -1,11 +1,16 @@
 package org.romeo.loveletter.game
 
 import scala.language.postfixOps
-import scala.util.Random
 import org.scalatest._
 import scalaz.State
 
 class EngineSpec extends FlatSpec with Matchers {
+
+  // if the test doesn't need a specific deck or player order, just use this
+  val basicRandomizer = Randomizer(
+    shuffleDeck = (s: Seq[Card]) => s,
+    choosePlayer = (s: Seq[Player]) => s.head
+  )
 
   behavior of "A game"
 
@@ -116,7 +121,7 @@ class EngineSpec extends FlatSpec with Matchers {
 
   it should "have 2 cards for the current player" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
-    val game = Game.startMatch(Some(players(0)))(new Random(9191)).exec(Game(players))
+    val game = Game.startMatch(Some(players.head))(basicRandomizer).exec(Game(players))
 
     val currentPlayer = Game.currentPlayer.eval(game)
     currentPlayer.hand should have length 2
@@ -124,15 +129,15 @@ class EngineSpec extends FlatSpec with Matchers {
 
   it should "have 1 for player whose turn it isn't when starting a game" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
-    val game = Game.startMatch(Some(players(0)))(new Random(9192)).exec(Game(players))
+    val game = Game.startMatch(Some(players.head))(basicRandomizer).exec(Game(players))
 
     val currentPlayer = Game.currentPlayer.eval(game)
-    (game.players.diff(Seq(currentPlayer))).foreach(_.hand should have length 1)
+    game.players.diff(Seq(currentPlayer)).foreach(_.hand should have length 1)
   }
 
   it should "have the same number of cards in the game as were in the deck (minus burn card)" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
-    val game = Game.startMatch(Some(players(0)))(new Random(9193)).exec(Game(players))
+    val game = Game.startMatch(Some(players.head))(basicRandomizer).exec(Game(players))
 
     val cardsInPlay = game.players.foldLeft(0)((acc, p) => acc + p.hand.length) + game.deck.length + game.visibleDiscard.length + game.discard.length
     cardsInPlay + 1 should be(org.romeo.loveletter.game.Deck.cards.length)
@@ -140,8 +145,7 @@ class EngineSpec extends FlatSpec with Matchers {
 
   it should "have the same number of cards in the game as were in the deck (minus burn card) for a 2 player game" in {
     val players = Seq("Tyler", "Kevin")
-    implicit val r = new Random(9194)
-    val game = Game.startMatch(Some(players(0))).exec(Game(players))
+    val game = Game.startMatch(Some(players.head))(basicRandomizer).exec(Game(players))
 
     val cardsInPlay = game.players.foldLeft(0)((acc, p) => acc + p.hand.length) + game.deck.length + game.visibleDiscard.length + game.discard.length
     cardsInPlay + 1 should be(org.romeo.loveletter.game.Deck.cards.length)
@@ -149,18 +153,16 @@ class EngineSpec extends FlatSpec with Matchers {
 
   it should "have 3 visible discards in a 2 player game" in {
     val players = Seq("Tyler", "Kevin")
-    implicit val r = new Random(9195)
-    val game = Game.startMatch(Some(players(0))).exec(Game(players))
+    val game = Game.startMatch(Some(players.head))(basicRandomizer).exec(Game(players))
 
-    game.visibleDiscard should have length (3)
+    game.visibleDiscard should have length 3
   }
 
   it should "have no visible discards in a non 2 player game" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
-    implicit val r = new Random(9196)
-    val game = Game.startMatch(Some(players(0))).exec(Game(players))
+    val game = Game.startMatch(Some(players.head))(basicRandomizer).exec(Game(players))
 
-    game.visibleDiscard should have length (0)
+    game.visibleDiscard should have length 0
   }
 
   it should "have all players not eliminated and not protected, even if they were in the previous match" in {
@@ -168,12 +170,12 @@ class EngineSpec extends FlatSpec with Matchers {
     val game = Game(players)
 
     def modifyPlayersThenRestartMatch = for {
-      _ <- Game.startMatch()(new Random(8375))
-      _ <- Game.protectPlayer(players(0), true)
-      _ <- Game.eliminatePlayer(players(0), true)
-      _ <- Game.protectPlayer(players(1), true)
-      _ <- Game.eliminatePlayer(players(2), true)
-      _ <- Game.startMatch()(new Random(7482))
+      _ <- Game.startMatch()(basicRandomizer)
+      _ <- Game.protectPlayer(players.head, isProtected = true)
+      _ <- Game.eliminatePlayer(players.head, isEliminated = true)
+      _ <- Game.protectPlayer(players(1), isProtected = true)
+      _ <- Game.eliminatePlayer(players(2), isEliminated = true)
+      _ <- Game.startMatch()(basicRandomizer)
     } yield ()
 
     val newGame = modifyPlayersThenRestartMatch.exec(game)
@@ -186,15 +188,14 @@ class EngineSpec extends FlatSpec with Matchers {
   it should "have no winner if more than one player is left and the discard is not empty" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
     val game = Game(players)
-    implicit val r = new Random(795)
 
     def repeat[A, B](n: Int, s: State[A, B]): State[A, B] = if (n <= 1) s else s.flatMap(_ => repeat(n - 1, s))
 
     def playSome = for {
-      _ <- Game.startMatch(Some(players(0)))
-      _ <- repeat(3, Game.drawCard(players(0)))
-      _ <- Game.eliminatePlayer(players(2), true)
-      winner <- Game.checkMatchOver(new Random(7374))
+      _ <- Game.startMatch(Some(players.head))(basicRandomizer)
+      _ <- repeat(3, Game.drawCard(players.head))
+      _ <- Game.eliminatePlayer(players(2), isEliminated = true)
+      winner <- Game.checkMatchOver(basicRandomizer)
     } yield winner
 
     val (newGame, winner) = playSome(game)
@@ -209,15 +210,15 @@ class EngineSpec extends FlatSpec with Matchers {
     val game = Game(players)
 
     def eliminateEveryoneElse = for {
-      _ <- Game.startMatch(Some(players(0)))(new Random(9294))
-      _ <- Game.eliminatePlayer(players(0), true)
-      _ <- Game.eliminatePlayer(players(1), true)
-      _ <- Game.eliminatePlayer(players(2), true)
-      winner <- Game.checkMatchOver(new Random(85930))
+      _ <- Game.startMatch(Some(players.head))(basicRandomizer)
+      _ <- Game.eliminatePlayer(players.head, isEliminated = true)
+      _ <- Game.eliminatePlayer(players(1), isEliminated = true)
+      _ <- Game.eliminatePlayer(players(2), isEliminated = true)
+      winner <- Game.checkMatchOver(basicRandomizer)
     } yield winner
 
     val newGame = eliminateEveryoneElse.exec(game)
-    newGame.deck should not be (game.deck)
+    newGame.deck should not be game.deck
     newGame.players.foreach(_.isEliminated should be(false))
   }
 
@@ -226,11 +227,11 @@ class EngineSpec extends FlatSpec with Matchers {
     val game = Game(players)
 
     def eliminateEveryoneElseThenStartNewMatch = for {
-      _ <- Game.startMatch(Some(players(0)))(new Random(9294))
-      _ <- Game.eliminatePlayer(players(0), true)
-      _ <- Game.eliminatePlayer(players(1), true)
-      _ <- Game.eliminatePlayer(players(2), true)
-      winner <- Game.checkMatchOver(new Random(85930))
+      _ <- Game.startMatch(Some(players.head))(basicRandomizer)
+      _ <- Game.eliminatePlayer(players.head, isEliminated = true)
+      _ <- Game.eliminatePlayer(players(1), isEliminated = true)
+      _ <- Game.eliminatePlayer(players(2), isEliminated = true)
+      winner <- Game.checkMatchOver(basicRandomizer)
       firstPlayer <- Game.currentPlayer
     } yield (winner, firstPlayer)
 
@@ -244,11 +245,11 @@ class EngineSpec extends FlatSpec with Matchers {
     val game = Game(players)
 
     def eliminateEveryoneElse = for {
-      _ <- Game.startMatch(Some(players(0)))(new Random(9294))
-      _ <- Game.eliminatePlayer(players(0), true)
-      _ <- Game.eliminatePlayer(players(1), true)
-      _ <- Game.eliminatePlayer(players(2), true)
-      winner <- Game.checkMatchOver(new Random(85930))
+      _ <- Game.startMatch(Some(players.head))(basicRandomizer)
+      _ <- Game.eliminatePlayer(players.head, isEliminated = true)
+      _ <- Game.eliminatePlayer(players(1), isEliminated = true)
+      _ <- Game.eliminatePlayer(players(2), isEliminated = true)
+      winner <- Game.checkMatchOver(basicRandomizer)
     } yield winner
 
     val winner = eliminateEveryoneElse.eval(game)
@@ -267,16 +268,23 @@ class EngineSpec extends FlatSpec with Matchers {
       _ <- Game.drawCard(currentPlayer.name)
     } yield ()
 
+    // stack the deck for player 0 to get princess, and 2 to get countess
+    val stackedDeck = Seq(Guard, Princess, Priest, Countess, Guard, Guard, Guard, Guard, Guard, Guard, Guard, Guard, Guard, Guard)
+    val stackedRandomizer = Randomizer(
+      shuffleDeck = (_) => stackedDeck,
+      choosePlayer = (s: Seq[Player]) => s.head
+    )
+
     val playTheGame = for {
-      _ <- Game.startMatch(Some(players(0)))(new Random(3)) //with a seed of 3, player(0) should get the 8, and player(2) should get the 7
-      _ <- repeat(org.romeo.loveletter.game.Deck.cards.length - 6, singleTurn)
-      _ <- Game.eliminatePlayer(players(0), true)
-      winner <- Game.checkMatchOver(new Random(4131))
+      _ <- Game.startMatch(Some(players.head))(stackedRandomizer) //player(0) should get the 8, and player(2) should get the 7
+      _ <- repeat(stackedDeck.length - 6, singleTurn)
+      _ <- Game.eliminatePlayer(players.head, isEliminated = true)
+      winner <- Game.checkMatchOver(basicRandomizer)
     } yield winner
 
     val (newGame, winner) = playTheGame(game)
 
-    winner should not be (empty)
+    winner should not be empty
     winner.get.name should be(players(2))
     Game.getPlayer(players(2)).eval(newGame).map(_.score).getOrElse(2) should be(1)
   }
@@ -293,44 +301,55 @@ class EngineSpec extends FlatSpec with Matchers {
       _ <- Game.drawCard(currentPlayer.name)
     } yield ()
 
+    // stack the deck for player 0
+    val stackedDeck = Seq(Guard, Princess, Guard, Guard, Guard, Guard, Guard, Guard, Guard, Guard, Guard, Guard)
+    val stackedRandomizer = Randomizer(
+      shuffleDeck = (_) => stackedDeck,
+      choosePlayer = (s: Seq[Player]) => s.head
+    )
+
     val playTheGame = for {
-      _ <- Game.startMatch(Some(players(0)))(new Random(3)) //with a seed of 3, player(0) should get the 8
-      _ <- repeat(org.romeo.loveletter.game.Deck.cards.length - 6, singleTurn)
-      winner <- Game.checkMatchOver(new Random(4131))
+      _ <- Game.startMatch(Some(players.head))(stackedRandomizer)
+      _ <- repeat(stackedDeck.length - 6, singleTurn)
+      winner <- Game.checkMatchOver(basicRandomizer)
     } yield winner
 
     val (newGame, winner) = playTheGame(game)
 
-    winner should not be (empty)
-    winner.get.name should be(players(0))
-    Game.getPlayer(players(0)).eval(newGame).map(_.score).getOrElse(0) should be(1)
+    winner should not be empty
+    winner.get.name should be(players.head)
+    Game.getPlayer(players.head).eval(newGame).map(_.score).getOrElse(0) should be(1)
   }
 
   behavior of "The game deck"
 
-  it should "be put in random order when shuffled" in {
+  it should "be put in the order given by the shuffle function when shuffled" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
     val game = Game(players)
-    val r1 = new Random(1337)
-    val r2 = new Random(1337)
 
-    val (newGame, shuffledDeck) = Game.shuffle(r1)(game)
+    val simpleShuffler = Randomizer(
+      shuffleDeck = (s: Seq[Card]) => s.drop(4).reverse ++ s.take(4),
+      choosePlayer = (s: Seq[Player]) => s.head
+    )
+
+    val (newGame, shuffledDeck) = Game.shuffle(simpleShuffler)(game)
     newGame.deck should be(shuffledDeck)
-    shuffledDeck should not be (Deck.cards)
+    shuffledDeck should not be Deck.cards
     shuffledDeck should contain theSameElementsAs Deck.cards
-    shuffledDeck should be(r2.shuffle(Deck.cards))
+    shuffledDeck should be(simpleShuffler.shuffleDeck(Deck.cards))
   }
 
   it should "lose its top card when burnCard is called" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
     val game = Game(players)
 
-    def shuffleAndBurn(r: Random) = for {
+    def shuffleAndBurn(r: Randomizer) = for {
       deck <- Game.shuffle(r)
       burntCard <- Game.burnCard
     } yield (deck, burntCard)
 
-    val (newGame, (newDeck, burntCard)) = shuffleAndBurn(new Random(1338))(game)
+    val (newGame, (newDeck, burntCard)) = shuffleAndBurn(basicRandomizer)(game)
+    burntCard should be(game.deck.head)
     newGame.deck should be(newDeck.tail)
     newGame.discard should be(game.discard)
     newGame.visibleDiscard should be(game.visibleDiscard)
@@ -340,12 +359,12 @@ class EngineSpec extends FlatSpec with Matchers {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
     val game = Game(players)
 
-    def shuffleAndBurn(r: Random) = for {
+    def shuffleAndBurn(r: Randomizer) = for {
       deck <- Game.shuffle(r)
       burntCard <- Game.burnCard
     } yield (deck, burntCard)
 
-    val (newGame, (newDeck, burntCard)) = shuffleAndBurn(new Random(1339))(game)
+    val (newGame, (newDeck, burntCard)) = shuffleAndBurn(basicRandomizer)(game)
     Seq(burntCard) ++ newGame.deck should be(newDeck)
   }
 
@@ -353,12 +372,12 @@ class EngineSpec extends FlatSpec with Matchers {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
     val game = Game(players)
 
-    def shuffleAndBurn(r: Random) = for {
+    def shuffleAndBurn(r: Randomizer) = for {
       deck <- Game.shuffle(r)
       burntCard <- Game.burnCard
     } yield (deck, burntCard)
 
-    val newGame = shuffleAndBurn(new Random(1340)).exec(game)
+    val newGame = shuffleAndBurn(basicRandomizer).exec(game)
     newGame.discard should be(game.discard)
     newGame.visibleDiscard should be(game.visibleDiscard)
   }
@@ -367,26 +386,26 @@ class EngineSpec extends FlatSpec with Matchers {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
     val game = Game(players)
 
-    def shuffleAndBurn(r: Random) = for {
+    def shuffleAndBurn(r: Randomizer) = for {
       _ <- Game.shuffle(r)
       burntCard <- Game.burnCardVisible
     } yield burntCard
 
-    val (newGame, burntCard) = shuffleAndBurn(new Random(1341))(game)
+    val (newGame, burntCard) = shuffleAndBurn(basicRandomizer)(game)
     newGame.discard should be(game.discard)
-    newGame.visibleDiscard should contain theSameElementsAs (burntCard)
+    newGame.visibleDiscard should contain theSameElementsAs burntCard
   }
 
   it should "no longer have its top card when a player draws" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
     val game = Game(players)
 
-    def shuffleAndDraw(r: Random) = for {
+    def shuffleAndDraw(r: Randomizer) = for {
       startingDeck <- Game.shuffle(r)
       _ <- Game.drawCard(players.head)
     } yield startingDeck
 
-    val (newGame, startingDeck) = shuffleAndDraw(new Random(1342))(game)
+    val (newGame, startingDeck) = shuffleAndDraw(basicRandomizer)(game)
     newGame.deck should be(startingDeck.tail)
   }
 
@@ -396,26 +415,26 @@ class EngineSpec extends FlatSpec with Matchers {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
     val game = Game(players)
 
-    def shuffleAndDraw(r: Random) = for {
+    def shuffleAndDraw(r: Randomizer) = for {
       startingDeck <- Game.shuffle(r)
       newPlayer <- Game.drawCard(players.head)
     } yield (startingDeck, newPlayer)
 
-    val (newGame, (startingDeck, newPlayer)) = shuffleAndDraw(new Random(1343))(game)
-    newGame.players(0) should be(newPlayer.get)
-    newPlayer.get.hand should contain only (startingDeck.head)
+    val (newGame, (startingDeck, newPlayer)) = shuffleAndDraw(basicRandomizer)(game)
+    newGame.players.head should be(newPlayer.get)
+    newPlayer.get.hand should contain only startingDeck.head
   }
 
   it should "not gain cards when another player draws" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
     val game = Game(players)
 
-    def shuffleAndDraw(r: Random) = for {
+    def shuffleAndDraw(r: Randomizer) = for {
       _ <- Game.shuffle(r)
       _ <- Game.drawCard(players.head)
     } yield ()
 
-    val newGame = shuffleAndDraw(new Random(1344)).exec(game)
+    val newGame = shuffleAndDraw(basicRandomizer).exec(game)
     newGame.players.tail.foreach(p => {
       p.hand shouldBe empty
     })
@@ -425,13 +444,13 @@ class EngineSpec extends FlatSpec with Matchers {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
     val game = Game(players)
 
-    def shuffleDrawAndDiscard(r: Random) = for {
+    def shuffleDrawAndDiscard(r: Randomizer) = for {
       _ <- Game.shuffle(r)
       player <- Game.drawCard(players.head)
       _ <- Game.playerDiscard(players.head, player.get.hand.head)
     } yield player
 
-    val (newGame, player) = shuffleDrawAndDiscard(new Random(1345))(game)
+    val (newGame, player) = shuffleDrawAndDiscard(basicRandomizer)(game)
     newGame.players.head.hand shouldBe empty
     player.get.hand should have size 1
   }
@@ -448,11 +467,11 @@ class EngineSpec extends FlatSpec with Matchers {
     val game = Game(players)
 
     def giveSomePoints = for {
-      _ <- Game.awardPoint(players(0))
+      _ <- Game.awardPoint(players.head)
       _ <- Game.awardPoint(players(1))
       _ <- Game.awardPoint(players(2))
       _ <- Game.awardPoint(players(2))
-      ty <- Game.getPlayer(players(0))
+      ty <- Game.getPlayer(players.head)
       kev <- Game.getPlayer(players(1))
       mo <- Game.getPlayer(players(2))
       trev <- Game.getPlayer(players(3))
@@ -479,14 +498,14 @@ class EngineSpec extends FlatSpec with Matchers {
     val game = Game(players)
 
     def eliminateSome = for {
-      ty <- Game.eliminatePlayer(players(0), true)
-      kev <- Game.eliminatePlayer(players(1), true)
+      ty <- Game.eliminatePlayer(players.head, isEliminated = true)
+      kev <- Game.eliminatePlayer(players(1), isEliminated = true)
     } yield (ty.get, kev.get)
 
     val (newGame, (ty, kev)) = eliminateSome(game)
     ty.isEliminated should be(true)
     kev.isEliminated should be(true)
-    Game.getPlayer(players(0)).eval(newGame).get.isEliminated should be(true)
+    Game.getPlayer(players.head).eval(newGame).get.isEliminated should be(true)
     Game.getPlayer(players(1)).eval(newGame).get.isEliminated should be(true)
     Game.getPlayer(players(2)).eval(newGame).get.isEliminated should be(false)
     Game.getPlayer(players(3)).eval(newGame).get.isEliminated should be(false)
@@ -494,12 +513,11 @@ class EngineSpec extends FlatSpec with Matchers {
 
   it should "have their card discarded if they are eliminated" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
-    implicit val r = new Random(73705)
-    val game = Game.startMatch(Some(players(0))).exec(Game(players))
+    val game = Game.startMatch(Some(players.head))(basicRandomizer).exec(Game(players))
 
     def checkKevinsCardThenEliminate = for {
       kev <- Game.getPlayer(players(1))
-      _ <- Game.eliminatePlayer(players(1), true)
+      _ <- Game.eliminatePlayer(players(1), isEliminated = true)
     } yield kev.get.hand.head
 
     val (newGame, kevsCard) = checkKevinsCardThenEliminate(game)
@@ -511,7 +529,7 @@ class EngineSpec extends FlatSpec with Matchers {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
     val game = Game(players)
 
-    Game.eliminatePlayer("BADPLAYER", true).exec(game) should be(game)
+    Game.eliminatePlayer("BADPLAYER", isEliminated = true).exec(game) should be(game)
   }
 
   it should "be protected if protect is called on them" in {
@@ -519,14 +537,14 @@ class EngineSpec extends FlatSpec with Matchers {
     val game = Game(players)
 
     def protectSome = for {
-      ty <- Game.protectPlayer(players(0), true)
-      kev <- Game.protectPlayer(players(1), true)
+      ty <- Game.protectPlayer(players.head, isProtected = true)
+      kev <- Game.protectPlayer(players(1), isProtected = true)
     } yield (ty.get, kev.get)
 
     val (newGame, (ty, kev)) = protectSome(game)
     ty.isProtected should be(true)
     kev.isProtected should be(true)
-    Game.getPlayer(players(0)).eval(newGame).get.isProtected should be(true)
+    Game.getPlayer(players.head).eval(newGame).get.isProtected should be(true)
     Game.getPlayer(players(1)).eval(newGame).get.isProtected should be(true)
     Game.getPlayer(players(2)).eval(newGame).get.isProtected should be(false)
     Game.getPlayer(players(3)).eval(newGame).get.isProtected should be(false)
@@ -534,14 +552,17 @@ class EngineSpec extends FlatSpec with Matchers {
 
   it should "no longer be protected one their turn starts" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
-    implicit val r = new Random(24)
-    //Use 24 as a seed for tests that need to ignore card effects. This will give the first player a countess
-    val game = Game.startMatch(Some(players(0))).exec(Game(players))
+    // use this randomizer for tests that need to ignore card effects. This will give the first player a countess
+    val noEffectRandomizer = Randomizer(
+      shuffleDeck = (s: Seq[Card]) => Seq(Guard, Countess) ++ s,
+      choosePlayer = (s: Seq[Player]) => s.head
+    )
+    val game = Game.startMatch(Some(players.head))(noEffectRandomizer).exec(Game(players))
 
     def protectPlayerThenStartTheirTurn = for {
       p1 <- Game.currentPlayer
-      p2 <- Game.protectPlayer(players(1), true)
-      _ <- Game.processTurn(p1.name, p1.hand.head)
+      p2 <- Game.protectPlayer(players(1), isProtected = true)
+      _ <- Game.processTurn(p1.name, p1.hand.head)(basicRandomizer)
       p3 <- Game.getPlayer(players(1))
     } yield (p2.get, p3.get)
 
@@ -553,14 +574,17 @@ class EngineSpec extends FlatSpec with Matchers {
 
   it should "be skipped in the turn order if they are eliminated" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
-    implicit val r = new Random(24)
-    //Use 24 as a seed for tests that need to ignore card effects. This will give the first player a countess
-    val game = Game.startMatch(Some(players(0))).exec(Game(players))
+    // use this randomizer for tests that need to ignore card effects. This will give the first player a countess
+    val noEffectRandomizer = Randomizer(
+      shuffleDeck = (s: Seq[Card]) => Seq(Guard, Countess) ++ s,
+      choosePlayer = (s: Seq[Player]) => s.head
+    )
+    val game = Game.startMatch(Some(players.head))(noEffectRandomizer).exec(Game(players))
 
     def eliminateThenSwitchTurns = for {
-      _ <- Game.eliminatePlayer(players(1), true)
+      _ <- Game.eliminatePlayer(players(1), isEliminated = true)
       p1 <- Game.currentPlayer
-      _ <- Game.processTurn(p1.name, p1.hand.head)
+      _ <- Game.processTurn(p1.name, p1.hand.head)(noEffectRandomizer)
       p2 <- Game.currentPlayer
     } yield p2
 
@@ -572,7 +596,7 @@ class EngineSpec extends FlatSpec with Matchers {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
     val game = Game(players)
 
-    Game.protectPlayer("BADPLAYER", true).exec(game) should be(game)
+    Game.protectPlayer("BADPLAYER", isProtected = true).exec(game) should be(game)
   }
 
   behavior of "The discard pile"
@@ -588,13 +612,13 @@ class EngineSpec extends FlatSpec with Matchers {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
     val game = Game(players)
 
-    def shuffleDrawAndDiscard(r: Random) = for {
+    def shuffleDrawAndDiscard(r: Randomizer) = for {
       _ <- Game.shuffle(r)
       player <- Game.drawCard(players.head)
       discard <- Game.playerDiscard(players.head, player.get.hand.head)
     } yield (player, discard)
 
-    val (newGame, (player, discard)) = shuffleDrawAndDiscard(new Random(1345))(game)
+    val (newGame, (player, discard)) = shuffleDrawAndDiscard(basicRandomizer)(game)
     newGame.discard should be(discard)
     discard.head should be(player.get.hand.head)
   }
@@ -604,12 +628,12 @@ class EngineSpec extends FlatSpec with Matchers {
     val game = Game(players)
 
     def drawAndDiscardInvalidCard = for {
-      player <- Game.drawCard(players(0))
-      discard <- Game.playerDiscard("BADPLAYER", org.romeo.loveletter.game.Princess)
+      player <- Game.drawCard(players.head)
+      discard <- Game.playerDiscard("BADPLAYER", Princess)
     } yield (player, discard)
 
     val (player, discard) = drawAndDiscardInvalidCard.eval(game)
-    player.get.hand.head should be(org.romeo.loveletter.game.Guard)
+    player.get.hand.head should be(Guard)
     discard shouldBe empty
 
   }
@@ -619,12 +643,12 @@ class EngineSpec extends FlatSpec with Matchers {
     val game = Game(players)
 
     def drawAndDiscardInvalidCard = for {
-      player <- Game.drawCard(players(0)) //should draw a guard
-      discard <- Game.playerDiscard(players(0), org.romeo.loveletter.game.Princess)
+      player <- Game.drawCard(players.head) //should draw a guard
+      discard <- Game.playerDiscard(players.head, Princess)
     } yield (player, discard)
 
     val (player, discard) = drawAndDiscardInvalidCard.eval(game)
-    player.get.hand.head should be(org.romeo.loveletter.game.Guard)
+    player.get.hand.head should be(Guard)
     discard shouldBe empty
 
   }
@@ -633,23 +657,26 @@ class EngineSpec extends FlatSpec with Matchers {
 
   it should "not change the game if a player not in the game tries to go" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
-    implicit val r = new Random(761247)
-    val game = Game.startMatch(Some(players(0))).exec(Game(players))
+    val game = Game.startMatch(Some(players.head))(basicRandomizer).exec(Game(players))
 
-    val newGame = Game.processTurn("BADPLAYER", Countess).exec(game)
+    val newGame = Game.processTurn("BADPLAYER", Countess)(basicRandomizer).exec(game)
 
     newGame should be(game)
   }
 
   it should "not change the game if it's not the player's turn" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
-    implicit val r = new Random(3)
-    //a seed of 3 gives the 4th player a countess, so there will be no side effects from the discard
-    val game = Game.startMatch(Some(players(0))).exec(Game(players))
+    // use this randomizer for tests that need to ignore card effects. This will give everyone a countess
+    val noEffectRandomizer = Randomizer(
+      shuffleDeck = (s: Seq[Card]) => Seq(Guard, Countess, Countess, Countess, Countess, Countess, Countess, Countess) ++ s,
+      choosePlayer = (s: Seq[Player]) => s.head
+    )
+    //there will be no side effects from the discard
+    val game = Game.startMatch(Some(players.head))(noEffectRandomizer).exec(Game(players))
 
     val newGame = (for {
       p <- Game.getPlayer(players(3))
-      _ <- Game.processTurn(players(3), p.get.hand.head)
+      _ <- Game.processTurn(players(3), p.get.hand.head)(noEffectRandomizer)
     } yield ()).exec(game)
 
     newGame should be(game)
@@ -657,13 +684,16 @@ class EngineSpec extends FlatSpec with Matchers {
 
   it should "not change the game if the player doesn't have the cards he wants to discard" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
-    implicit val r = new Random(81234578)
-    //won't give the player a countess
-    val game = Game.startMatch(Some(players(0))).exec(Game(players))
+    // this randomizer will give the first player a princess
+    val princessRandomizer = Randomizer(
+      shuffleDeck = (s: Seq[Card]) => Seq(Guard, Princess) ++ s,
+      choosePlayer = (s: Seq[Player]) => s.head
+    )
+    val game = Game.startMatch(Some(players.head))(princessRandomizer).exec(Game(players))
 
     val newGame = (for {
       p <- Game.currentPlayer
-      _ <- Game.processTurn(p.name, Countess)
+      _ <- Game.processTurn(p.name, Countess)(princessRandomizer) //not the card in hand
     } yield ()).exec(game)
 
     newGame should be(game)
@@ -671,46 +701,57 @@ class EngineSpec extends FlatSpec with Matchers {
 
   it should "be the next player's turn after the current player takes a turn" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
-    implicit val r = new Random(9195)
-    val game = Game.startMatch(Some(players(0))).exec(Game(players))
+    // use this randomizer for tests that need to ignore card effects. This will give everyone a countess
+    val noEffectRandomizer = Randomizer(
+      shuffleDeck = (s: Seq[Card]) => Seq(Guard, Countess, Countess, Countess, Countess, Countess, Countess, Countess) ++ s,
+      choosePlayer = (s: Seq[Player]) => s.head
+    )
+    val game = Game.startMatch(Some(players.head))(noEffectRandomizer).exec(Game(players))
 
     def takeATurnThenGetNextPlayer = for {
       p <- Game.currentPlayer
-      _ <- Game.processTurn(p.name, p.hand.head)
+      _ <- Game.processTurn(p.name, p.hand.head)(noEffectRandomizer)
       p2 <- Game.currentPlayer
     } yield p2
 
-    val (newGame, nextPlayer) = takeATurnThenGetNextPlayer(game)
+    val (_, nextPlayer) = takeATurnThenGetNextPlayer(game)
 
     nextPlayer.name should be(players(1))
   }
 
   it should "cause the next player to draw a card after the current player takes a turn" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
-    implicit val r = new Random(7373)
-    val game = Game.startMatch(Some(players(0))).exec(Game(players))
+    // use this randomizer for tests that need to ignore card effects. This will give everyone a countess
+    val noEffectRandomizer = Randomizer(
+      shuffleDeck = (s: Seq[Card]) => Seq(Guard, Countess, Countess, Countess, Countess, Countess, Countess, Countess) ++ s,
+      choosePlayer = (s: Seq[Player]) => s.head
+    )
+    val game = Game.startMatch(Some(players.head))(noEffectRandomizer).exec(Game(players))
 
     def takeATurnThenGetNextPlayer = for {
       p <- Game.currentPlayer
-      _ <- Game.processTurn(p.name, p.hand.head)
+      _ <- Game.processTurn(p.name, p.hand.head)(noEffectRandomizer)
       p2 <- Game.currentPlayer
     } yield p2
 
-    val (newGame, nextPlayer) = takeATurnThenGetNextPlayer(game)
+    val (_, nextPlayer) = takeATurnThenGetNextPlayer(game)
 
     nextPlayer.name should be(players(1))
-    nextPlayer.hand should have length (2)
+    nextPlayer.hand should have length 2
   }
 
   it should "add the discarded card to the discard pile" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
-    implicit val r = new Random(24)
-    //Use 24 as a seed for tests that need to ignore card effects. This will give the first player a countess
-    val game = Game.startMatch(Some(players(0))).exec(Game(players))
+    // use this randomizer for tests that need to ignore card effects. This will give everyone a countess
+    val noEffectRandomizer = Randomizer(
+      shuffleDeck = (s: Seq[Card]) => Seq(Guard, Countess, Countess, Countess, Countess, Countess, Countess, Countess) ++ s,
+      choosePlayer = (s: Seq[Player]) => s.head
+    )
+    val game = Game.startMatch(Some(players.head))(noEffectRandomizer).exec(Game(players))
 
     def takeATurn = for {
       p <- Game.currentPlayer
-      _ <- Game.processTurn(p.name, p.hand.head)
+      _ <- Game.processTurn(p.name, p.hand.head)(noEffectRandomizer)
     } yield p.hand.head
 
     val (newGame, discard) = takeATurn(game)
@@ -720,83 +761,103 @@ class EngineSpec extends FlatSpec with Matchers {
 
   it should "detect and return the winner of a match" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
-    implicit val r = new Random(5672)
-    val game = Game.startMatch(Some(players(0))).exec(Game(players))
+    // use this randomizer for tests that need to ignore card effects. This will give everyone a countess
+    val noEffectRandomizer = Randomizer(
+      shuffleDeck = (s: Seq[Card]) => Seq(Guard, Countess, Countess, Countess, Countess, Countess, Countess, Countess) ++ s,
+      choosePlayer = (s: Seq[Player]) => s.head
+    )
+    val game = Game.startMatch(Some(players.head))(noEffectRandomizer).exec(Game(players))
 
     def makeSomeoneWinnerThenTakeTurn = for {
-      _ <- Game.eliminatePlayer(players(1), true)
-      _ <- Game.eliminatePlayer(players(2), true)
-      _ <- Game.eliminatePlayer(players(3), true)
+      _ <- Game.eliminatePlayer(players(1), isEliminated = true)
+      _ <- Game.eliminatePlayer(players(2), isEliminated = true)
+      _ <- Game.eliminatePlayer(players(3), isEliminated = true)
       p <- Game.currentPlayer
-      winners <- Game.processTurn(p.name, p.hand.head)
+      winners <- Game.processTurn(p.name, p.hand.head)(noEffectRandomizer)
     } yield winners
 
     val winners = makeSomeoneWinnerThenTakeTurn.eval(game)
 
     winners.isRight should be(true)
-    winners.right.get.map(_.msg) should contain(s"${players(0)} has won the match!")
+    winners.right.get.map(_.msg) should contain(s"${players.head} has won the match!")
   }
 
   it should "start a new match if there is a winner" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
-    val seed = 93713
-    //Use 24 as a seed for tests that need to ignore card effects. This will give the first player a countess
-    val game = Game.startMatch(Some(players(0)))(new Random(24)).exec(Game(players))
+    // use this randomizer for tests that need to ignore card effects. This will give everyone a countess
+    val noEffectRandomizer = Randomizer(
+      shuffleDeck = (s: Seq[Card]) => Seq(Guard, Countess, Countess, Countess, Countess, Countess, Countess, Countess) ++ s,
+      choosePlayer = (s: Seq[Player]) => s.head
+    )
+
+    val predictableRandomizer = Randomizer(
+      shuffleDeck = (_) => Seq(Guard, Prince, Guard, Handmaid, Priest, Prince, Priest, Guard, Guard, Baron, Baron, Guard, Princess, Countess, King, Handmaid),
+      choosePlayer = (s: Seq[Player]) => s.head
+    )
+    val game = Game.startMatch(Some(players.head))(noEffectRandomizer).exec(Game(players))
 
     def makeSomeoneWinner = for {
-      _ <- Game.eliminatePlayer(players(1), true)
-      _ <- Game.eliminatePlayer(players(2), true)
-      _ <- Game.eliminatePlayer(players(3), true)
+      _ <- Game.eliminatePlayer(players(1), isEliminated = true)
+      _ <- Game.eliminatePlayer(players(2), isEliminated = true)
+      _ <- Game.eliminatePlayer(players(3), isEliminated = true)
     } yield ()
 
     val newGame1 = makeSomeoneWinner.exec(game)
     val newGame2 = (for {
       p <- Game.currentPlayer
-      _ <- Game.processTurn(p.name, p.hand.head)(new Random(seed))
+      _ <- Game.processTurn(p.name, p.hand.head)(predictableRandomizer)
     } yield ()).exec(newGame1)
 
     newGame1.deck should not be newGame2.deck
     newGame2.players.foreach(_.isEliminated should be(false))
-    //To prove that a new match has started, shuffle a new deck with the same seed as the new match.
+    //To prove that a new match has started, shuffle a new deck with the same randomizer as the new match.
     //If the decks have the same tails, that shows that there's a new game
-    Game.shuffle(new Random(seed)).exec(Game(players)).deck.endsWith(newGame2.deck) should be(true)
+    Game.shuffle(predictableRandomizer).exec(Game(players)).deck.endsWith(newGame2.deck) should be(true)
 
   }
 
   it should "detect and return the winner of a game" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
-    implicit val r = new Random(24)
+    // use this randomizer for tests that need to ignore card effects. This will give everyone a countess
+    val noEffectRandomizer = Randomizer(
+      shuffleDeck = (s: Seq[Card]) => Seq(Guard, Countess, Countess, Countess, Countess, Countess, Countess, Countess) ++ s,
+      choosePlayer = (s: Seq[Player]) => s.head
+    )
     //Use 24 as a seed for tests that need to ignore card effects. This will give the first player a countess
-    val game = Game.startMatch(Some(players(0))).exec(Game(players))
+    val game = Game.startMatch(Some(players.head))(noEffectRandomizer).exec(Game(players))
 
     def makeSomeoneWinnerThenTakeTurn = for {
-      _ <- Game.eliminatePlayer(players(1), true)
-      _ <- Game.eliminatePlayer(players(2), true)
-      _ <- Game.eliminatePlayer(players(3), true)
-      _ <- Game.awardPoint(players(0))
-      _ <- Game.awardPoint(players(0))
-      _ <- Game.awardPoint(players(0))
+      _ <- Game.eliminatePlayer(players(1), isEliminated = true)
+      _ <- Game.eliminatePlayer(players(2), isEliminated = true)
+      _ <- Game.eliminatePlayer(players(3), isEliminated = true)
+      _ <- Game.awardPoint(players.head)
+      _ <- Game.awardPoint(players.head)
+      _ <- Game.awardPoint(players.head)
       p <- Game.currentPlayer
-      winners <- Game.processTurn(p.name, p.hand.head)
+      winners <- Game.processTurn(p.name, p.hand.head)(noEffectRandomizer)
     } yield winners
 
     val winners = makeSomeoneWinnerThenTakeTurn.eval(game)
 
     winners.isRight should be(true)
-    winners.right.get.last.msg should be(s"${players(0)} has won the game!")
+    winners.right.get.last.msg should be(s"${players.head} has won the game!")
   }
 
   behavior of "The guard card"
 
   it should "eliminate a player if their card is guessed" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
-    implicit val r = new Random(11)
-    //seed 11 gives player 1 a guard, and player 2 a priest
-    val game = Game.startMatch(Some(players(0))).exec(Game(players))
+    // use this randomizer for tests that need specific card
+    val stackedDeckRandomizer = Randomizer(
+      shuffleDeck = (s: Seq[Card]) => Seq(Guard, Guard, Priest) ++ s,
+      choosePlayer = (s: Seq[Player]) => s.head
+    )
+    //player 1 will get a guard, player 2 a priest
+    val game = Game.startMatch(Some(players.head))(stackedDeckRandomizer).exec(Game(players))
 
     def playGuardAndGuessRight = for {
       p <- Game.currentPlayer
-      result <- Game.processTurn(p.name, Guard, Some(players(1)), Some(Priest))
+      result <- Game.processTurn(p.name, Guard, Some(players(1)), Some(Priest))(stackedDeckRandomizer)
       target <- Game.getPlayer(players(1))
     } yield (result, target.get)
 
@@ -804,111 +865,139 @@ class EngineSpec extends FlatSpec with Matchers {
 
     message.isRight should be(true)
     target.isEliminated should be(true)
+    newGame should not be (game)
   }
 
   it should "not eliminate a player if their card is guessed incorrectly" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
-    implicit val r = new Random(11)
-    //seed 11 gives player 1 a guard, and player 2 a priest
-    val game = Game.startMatch(Some(players(0))).exec(Game(players))
+    // use this randomizer for tests that need specific card
+    val stackedDeckRandomizer = Randomizer(
+      shuffleDeck = (s: Seq[Card]) => Seq(Guard, Guard, Priest) ++ s,
+      choosePlayer = (s: Seq[Player]) => s.head
+    )
+    //player 1 will get a guard, player 2 a priest
+    val game = Game.startMatch(Some(players.head))(stackedDeckRandomizer).exec(Game(players))
 
-    def playGuardAndGuessRight = for {
+    def playGuardAndGuessWrong = for {
       p <- Game.currentPlayer
-      result <- Game.processTurn(p.name, Guard, Some(players(1)), Some(Baron)) //WRONG
+      result <- Game.processTurn(p.name, Guard, Some(players(1)), Some(Baron))(stackedDeckRandomizer) //WRONG
       target <- Game.getPlayer(players(1))
     } yield (result, target.get)
 
-    val (newGame, (message, target)) = playGuardAndGuessRight(game)
+    val (newGame, (message, target)) = playGuardAndGuessWrong(game)
 
     message.isRight should be(true)
     target.isEliminated should be(false)
+    newGame should not be (game)
   }
 
   it should "fail if guard is guessed" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
-    implicit val r = new Random(11)
-    //seed 11 gives player 1 a guard, and player 2 a priest
-    val game = Game.startMatch(Some(players(0))).exec(Game(players))
+    // use this randomizer for tests that need specific card
+    val stackedDeckRandomizer = Randomizer(
+      shuffleDeck = (s: Seq[Card]) => Seq(Guard, Guard, Guard) ++ s,
+      choosePlayer = (s: Seq[Player]) => s.head
+    )
+    //player 1 will get a guard, player 1 also a guard
+    val game = Game.startMatch(Some(players.head))(stackedDeckRandomizer).exec(Game(players))
 
-    def playGuardAndGuessRight = for {
+    def playGuardAndGuessGuard = for {
       p <- Game.currentPlayer
-      result <- Game.processTurn(p.name, Guard, Some(players(1)), Some(Guard))
+      result <- Game.processTurn(p.name, Guard, Some(players(1)), Some(Guard))(stackedDeckRandomizer)
       currentPlayer <- Game.currentPlayer
     } yield (result, currentPlayer)
 
-    val (newGame, (message, currentPlayer)) = playGuardAndGuessRight(game)
+    val (newGame, (message, currentPlayer)) = playGuardAndGuessGuard(game)
 
     message.isLeft should be(true)
-    currentPlayer.name should be(players(0))
+    currentPlayer.name should be(players.head)
+    newGame should be(game)
   }
 
   it should "fail if a player not in the game is targeted" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
-    implicit val r = new Random(11)
-    //seed 11 gives player 1 a guard, and player 2 a priest
-    val game = Game.startMatch(Some(players(0))).exec(Game(players))
+    // use this randomizer for tests that need specific card
+    val stackedDeckRandomizer = Randomizer(
+      shuffleDeck = (s: Seq[Card]) => Seq(Guard, Guard) ++ s,
+      choosePlayer = (s: Seq[Player]) => s.head
+    )
+    //player 1 will get a guard
+    val game = Game.startMatch(Some(players.head))(stackedDeckRandomizer).exec(Game(players))
 
     def playGuardAndGuessBadplayer = for {
       p <- Game.currentPlayer
-      result <- Game.processTurn(p.name, Guard, Some("BADPLAYER"), Some(Priest))
+      result <- Game.processTurn(p.name, Guard, Some("BADPLAYER"), Some(Priest))(stackedDeckRandomizer)
       currentPlayer <- Game.currentPlayer
     } yield (result, currentPlayer)
 
     val (newGame, (message, currentPlayer)) = playGuardAndGuessBadplayer(game)
 
     message.isLeft should be(true)
-    currentPlayer.name should be(players(0))
+    currentPlayer.name should be(players.head)
+    newGame should be(game)
   }
 
   it should "fail if the targeted player is protected" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
-    implicit val r = new Random(11)
-    //seed 11 gives player 1 a guard, and player 2 a priest
-    val game = Game.startMatch(Some(players(0))).exec(Game(players))
+    // use this randomizer for tests that need specific card
+    val stackedDeckRandomizer = Randomizer(
+      shuffleDeck = (s: Seq[Card]) => Seq(Guard, Guard, Priest) ++ s,
+      choosePlayer = (s: Seq[Player]) => s.head
+    )
+    //player 1 will get a guard, player 2 a priest
+    val game = Game.startMatch(Some(players.head))(stackedDeckRandomizer).exec(Game(players))
 
     def protectThenPlayGuard = for {
-      _ <- Game.protectPlayer(players(1), true)
+      _ <- Game.protectPlayer(players(1), isProtected = true)
       p <- Game.currentPlayer
-      result <- Game.processTurn(p.name, Guard, Some(players(1)), Some(Priest))
+      result <- Game.processTurn(p.name, Guard, Some(players(1)), Some(Priest))(stackedDeckRandomizer)
       currentPlayer <- Game.currentPlayer
     } yield (result, currentPlayer)
 
     val (message, currentPlayer) = protectThenPlayGuard.eval(game)
 
     message.isLeft should be(true)
-    currentPlayer.name should be(players(0))
+    currentPlayer.name should be(players.head)
   }
 
   it should "fail if the targeted player is eliminated" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
-    implicit val r = new Random(11)
-    //seed 11 gives player 1 a guard, and player 2 a priest
-    val game = Game.startMatch(Some(players(0))).exec(Game(players))
+    // use this randomizer for tests that need specific card
+    val stackedDeckRandomizer = Randomizer(
+      shuffleDeck = (s: Seq[Card]) => Seq(Guard, Guard, Priest) ++ s,
+      choosePlayer = (s: Seq[Player]) => s.head
+    )
+    //player 1 will get a guard, player 2 a priest
+    val game = Game.startMatch(Some(players.head))(stackedDeckRandomizer).exec(Game(players))
 
     def protectThenPlayGuard = for {
-      _ <- Game.eliminatePlayer(players(1), true)
+      _ <- Game.eliminatePlayer(players(1), isEliminated = true)
       p <- Game.currentPlayer
-      result <- Game.processTurn(p.name, Guard, Some(players(1)), Some(Priest))
+      result <- Game.processTurn(p.name, Guard, Some(players(1)), Some(Priest))(stackedDeckRandomizer)
       currentPlayer <- Game.currentPlayer
     } yield (result, currentPlayer)
 
     val (message, currentPlayer) = protectThenPlayGuard.eval(game)
 
     message.isLeft should be(true)
-    currentPlayer.name should be(players(0))
+    currentPlayer.name should be(players.head)
   }
 
   it should "allow the player to play with no effect if every other player is eliminated or protected" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
-    implicit val r = new Random(11)
-    //seed 11 gives player 1 a guard, and player 2 a priest
-    val game = Game.startMatch(Some(players(0))).exec(Game(players))
+    // use this randomizer for tests that need specific card
+    val stackedDeckRandomizer = Randomizer(
+      shuffleDeck = (s: Seq[Card]) => Seq(Guard, Guard, Priest) ++ s,
+      choosePlayer = (s: Seq[Player]) => s.head
+    )
+    //player 1 will get a guard, player 2 a priest
+    val game = Game.startMatch(Some(players.head))(stackedDeckRandomizer).exec(Game(players))
 
     def protectOrEliminateEveryoneThenPlay = for {
-      _ <- Game.protectPlayer(players(1), true)
-      _ <- Game.eliminatePlayer(players(2), true)
-      _ <- Game.protectPlayer(players(3), true)
-      result <- Game.processTurn(players(0), Guard, None, None)
+      _ <- Game.protectPlayer(players(1), isProtected = true)
+      _ <- Game.eliminatePlayer(players(2), isEliminated = true)
+      _ <- Game.protectPlayer(players(3), isProtected = true)
+      result <- Game.processTurn(players.head, Guard, None, None)(stackedDeckRandomizer)
       p <- Game.currentPlayer
     } yield (p, result)
 
@@ -920,13 +1009,18 @@ class EngineSpec extends FlatSpec with Matchers {
 
   it should "fail if a target or a guess is not supplied" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
-    implicit val r = new Random(432345)
+    // use this randomizer for tests that need specific card
+    val stackedDeckRandomizer = Randomizer(
+      shuffleDeck = (s: Seq[Card]) => Seq(Guard, Guard, Priest) ++ s,
+      choosePlayer = (s: Seq[Player]) => s.head
+    )
+    //player 1 will get a guard, player 2 a priest
     val game = Game(players)
-    val (game1, result1) = Game.processTurn(players(0), Guard, None, Some(Priest)).apply(game)
+    val (game1, result1) = Game.processTurn(players.head, Guard, None, Some(Priest))(stackedDeckRandomizer).apply(game)
     game1 should be(game)
     result1.isLeft should be(true)
 
-    val (game2, result2) = Game.processTurn(players(0), Guard, Some(players(2)), None).apply(game)
+    val (game2, result2) = Game.processTurn(players.head, Guard, Some(players(2)), None)(stackedDeckRandomizer).apply(game)
     game2 should be(game)
     result2.isLeft should be(true)
   }
@@ -935,13 +1029,17 @@ class EngineSpec extends FlatSpec with Matchers {
 
   it should "show the card of the targeted player in the returned message" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
-    implicit val r = new Random(1)
-    //seed 1 gives player 1 a priest, and player 2 a guard
-    val game = Game.startMatch(Some(players(0))).exec(Game(players))
+    // use this randomizer for tests that need specific card
+    val stackedDeckRandomizer = Randomizer(
+      shuffleDeck = (s: Seq[Card]) => Seq(Guard, Priest, Guard) ++ s,
+      choosePlayer = (s: Seq[Player]) => s.head
+    )
+    //player 1 will get a priest, player 2 a guard
+    val game = Game.startMatch(Some(players.head))(stackedDeckRandomizer).exec(Game(players))
 
     def peekAtPlayersCard = for {
       p <- Game.currentPlayer
-      result <- Game.processTurn(p.name, Priest, Some(players(1)), None)
+      result <- Game.processTurn(p.name, Priest, Some(players(1)), None)(stackedDeckRandomizer)
     } yield result
 
     val message = peekAtPlayersCard.eval(game)
@@ -952,71 +1050,88 @@ class EngineSpec extends FlatSpec with Matchers {
 
   it should "fail if a player not in the game is targeted" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
-    implicit val r = new Random(1)
-    //seed 1 gives player 1 a priest, and player 2 a guard
-    val game = Game.startMatch(Some(players(0))).exec(Game(players))
+    // use this randomizer for tests that need specific card
+    val stackedDeckRandomizer = Randomizer(
+      shuffleDeck = (s: Seq[Card]) => Seq(Guard, Priest, Guard) ++ s,
+      choosePlayer = (s: Seq[Player]) => s.head
+    )
+    //player 1 will get a priest, player 2 a guard
+    val game = Game.startMatch(Some(players.head))(stackedDeckRandomizer).exec(Game(players))
 
     def playPriestOnBadplayer = for {
       p <- Game.currentPlayer
-      result <- Game.processTurn(p.name, Priest, Some("BADPLAYER"), None)
+      result <- Game.processTurn(p.name, Priest, Some("BADPLAYER"), None)(stackedDeckRandomizer)
       currentPlayer <- Game.currentPlayer
     } yield (result, currentPlayer)
 
     val (newGame, (message, currentPlayer)) = playPriestOnBadplayer(game)
 
     message.isLeft should be(true)
-    currentPlayer.name should be(players(0))
+    currentPlayer.name should be(players.head)
+    newGame should be(game)
   }
 
   it should "fail if the targeted player is protected" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
-    implicit val r = new Random(1)
-    //seed 1 gives player 1 a priest, and player 2 a guard
-    val game = Game.startMatch(Some(players(0))).exec(Game(players))
+    // use this randomizer for tests that need specific card
+    val stackedDeckRandomizer = Randomizer(
+      shuffleDeck = (s: Seq[Card]) => Seq(Guard, Priest, Guard) ++ s,
+      choosePlayer = (s: Seq[Player]) => s.head
+    )
+    //player 1 will get a priest, player 2 a guard
+    val game = Game.startMatch(Some(players.head))(stackedDeckRandomizer).exec(Game(players))
 
     def playPriestOnProtectedPlayer = for {
-      _ <- Game.protectPlayer(players(1), true)
+      _ <- Game.protectPlayer(players(1), isProtected = true)
       p <- Game.currentPlayer
-      result <- Game.processTurn(p.name, Priest, Some(players(1)), None)
+      result <- Game.processTurn(p.name, Priest, Some(players(1)), None)(stackedDeckRandomizer)
       currentPlayer <- Game.currentPlayer
     } yield (result, currentPlayer)
 
-    val (newGame, (message, currentPlayer)) = playPriestOnProtectedPlayer(game)
+    val (message, currentPlayer) = playPriestOnProtectedPlayer.eval(game)
 
     message.isLeft should be(true)
-    currentPlayer.name should be(players(0))
+    currentPlayer.name should be(players.head)
   }
 
   it should "fail if the targeted player is eliminated" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
-    implicit val r = new Random(1)
-    //seed 1 gives player 1 a priest, and player 2 a guard
-    val game = Game.startMatch(Some(players(0))).exec(Game(players))
+    // use this randomizer for tests that need specific card
+    val stackedDeckRandomizer = Randomizer(
+      shuffleDeck = (s: Seq[Card]) => Seq(Guard, Priest, Guard) ++ s,
+      choosePlayer = (s: Seq[Player]) => s.head
+    )
+    //player 1 will get a priest, player 2 a guard
+    val game = Game.startMatch(Some(players.head))(stackedDeckRandomizer).exec(Game(players))
 
     def playPriestOnEliminatedPlayer = for {
-      _ <- Game.eliminatePlayer(players(1), true)
+      _ <- Game.eliminatePlayer(players(1), isEliminated = true)
       p <- Game.currentPlayer
-      result <- Game.processTurn(p.name, Priest, Some(players(1)), None)
+      result <- Game.processTurn(p.name, Priest, Some(players(1)), None)(stackedDeckRandomizer)
       currentPlayer <- Game.currentPlayer
     } yield (result, currentPlayer)
 
-    val (newGame, (message, currentPlayer)) = playPriestOnEliminatedPlayer(game)
+    val (message, currentPlayer) = playPriestOnEliminatedPlayer.eval(game)
 
     message.isLeft should be(true)
-    currentPlayer.name should be(players(0))
+    currentPlayer.name should be(players.head)
   }
 
   it should "allow the player to play with no effect if every other player is eliminated or protected" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
-    implicit val r = new Random(1)
-    //seed 1 gives player 1 a priest, and player 2 a guard
-    val game = Game.startMatch(Some(players(0))).exec(Game(players))
+    // use this randomizer for tests that need specific card
+    val stackedDeckRandomizer = Randomizer(
+      shuffleDeck = (s: Seq[Card]) => Seq(Guard, Priest, Guard) ++ s,
+      choosePlayer = (s: Seq[Player]) => s.head
+    )
+    //player 1 will get a priest, player 2 a guard
+    val game = Game.startMatch(Some(players.head))(stackedDeckRandomizer).exec(Game(players))
 
     def protectOrEliminateEveryoneThenPlay = for {
-      _ <- Game.protectPlayer(players(1), true)
-      _ <- Game.eliminatePlayer(players(2), true)
-      _ <- Game.protectPlayer(players(3), true)
-      result <- Game.processTurn(players(0), Priest, None, None)
+      _ <- Game.protectPlayer(players(1), isProtected = true)
+      _ <- Game.eliminatePlayer(players(2), isEliminated = true)
+      _ <- Game.protectPlayer(players(3), isProtected = true)
+      result <- Game.processTurn(players.head, Priest, None, None)(stackedDeckRandomizer)
       p <- Game.currentPlayer
     } yield (p, result)
 
@@ -1028,9 +1143,14 @@ class EngineSpec extends FlatSpec with Matchers {
 
   it should "fail if a target is not supplied" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
-    implicit val r = new Random(432345)
+    // use this randomizer for tests that need specific card
+    val stackedDeckRandomizer = Randomizer(
+      shuffleDeck = (s: Seq[Card]) => Seq(Guard, Priest) ++ s,
+      choosePlayer = (s: Seq[Player]) => s.head
+    )
+    //player 1 will get a priest
     val game = Game(players)
-    val (game1, result1) = Game.processTurn(players(0), Priest, None, None).apply(game)
+    val (game1, result1) = Game.processTurn(players.head, Priest, None, None)(stackedDeckRandomizer).apply(game)
     game1 should be(game)
     result1.isLeft should be(true)
   }
@@ -1039,14 +1159,18 @@ class EngineSpec extends FlatSpec with Matchers {
 
   it should "eliminate the target player if your card is higher than theirs" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
-    implicit val r = new Random(12)
-    //seed 0 gives player 1 a baron and a countess, and player 2 a guard
-    val game = Game.startMatch(Some(players(0))).exec(Game(players))
+    // use this randomizer for tests that need specific card
+    val stackedDeckRandomizer = Randomizer(
+      shuffleDeck = (s: Seq[Card]) => Seq(Guard, Baron, Guard, Princess, Handmaid, Countess) ++ s,
+      choosePlayer = (s: Seq[Player]) => s.head
+    )
+    //player 1 will get a baron and a countess, player 2 a guard
+    val game = Game.startMatch(Some(players.head))(stackedDeckRandomizer).exec(Game(players))
 
-    val (newGame, response) = Game.processTurn(players(0), Baron, Some(players(1)), None).apply(game)
+    val (newGame, response) = Game.processTurn(players.head, Baron, Some(players(1)), None)(stackedDeckRandomizer).apply(game)
 
     response.isRight should be(true)
-    Game.getPlayer(players(0)).eval(newGame).get.isEliminated should be(false)
+    Game.getPlayer(players.head).eval(newGame).get.isEliminated should be(false)
     Game.getPlayer(players(1)).eval(newGame).get.isEliminated should be(true)
     Game.currentPlayer.eval(newGame).name should be(players(2))
 
@@ -1054,14 +1178,18 @@ class EngineSpec extends FlatSpec with Matchers {
 
   it should "eliminate you if the target players card is higher than yours" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
-    implicit val r = new Random(0)
-    //seed 0 gives player 1 a baron and a priest, and player 2 a prince
-    val game = Game.startMatch(Some(players(0))).exec(Game(players))
+    // use this randomizer for tests that need specific card
+    val stackedDeckRandomizer = Randomizer(
+      shuffleDeck = (s: Seq[Card]) => Seq(Guard, Baron, Prince, Princess, Handmaid, Priest) ++ s,
+      choosePlayer = (s: Seq[Player]) => s.head
+    )
+    //player 1 will get a baron and a priest, player 2 a Prince
+    val game = Game.startMatch(Some(players.head))(stackedDeckRandomizer).exec(Game(players))
 
-    val (newGame, response) = Game.processTurn(players(0), Baron, Some(players(1)), None).apply(game)
+    val (newGame, response) = Game.processTurn(players.head, Baron, Some(players(1)), None)(stackedDeckRandomizer).apply(game)
 
     response.isRight should be(true)
-    Game.getPlayer(players(0)).eval(newGame).get.isEliminated should be(true)
+    Game.getPlayer(players.head).eval(newGame).get.isEliminated should be(true)
     Game.getPlayer(players(1)).eval(newGame).get.isEliminated should be(false)
     Game.currentPlayer.eval(newGame).name should be(players(1))
 
@@ -1069,14 +1197,18 @@ class EngineSpec extends FlatSpec with Matchers {
 
   it should "eliminate nobody if you have the same card" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
-    implicit val r = new Random(23)
-    //seed 0 gives player 1 a baron and a handmaid, and player 2 a handmaid
-    val game = Game.startMatch(Some(players(0))).exec(Game(players))
+    // use this randomizer for tests that need specific card
+    val stackedDeckRandomizer = Randomizer(
+      shuffleDeck = (s: Seq[Card]) => Seq(Guard, Baron, Handmaid, Princess, Handmaid, Handmaid) ++ s,
+      choosePlayer = (s: Seq[Player]) => s.head
+    )
+    //player 1 will get a baron and a handmaid, player 2 a handmaid
+    val game = Game.startMatch(Some(players.head))(stackedDeckRandomizer).exec(Game(players))
 
-    val (newGame, response) = Game.processTurn(players(0), Baron, Some(players(1)), None).apply(game)
+    val (newGame, response) = Game.processTurn(players.head, Baron, Some(players(1)), None)(stackedDeckRandomizer).apply(game)
 
     response.isRight should be(true)
-    Game.getPlayer(players(0)).eval(newGame).get.isEliminated should be(false)
+    Game.getPlayer(players.head).eval(newGame).get.isEliminated should be(false)
     Game.getPlayer(players(1)).eval(newGame).get.isEliminated should be(false)
     Game.currentPlayer.eval(newGame).name should be(players(1))
 
@@ -1084,71 +1216,88 @@ class EngineSpec extends FlatSpec with Matchers {
 
   it should "fail if a player not in the game is targeted" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
-    implicit val r = new Random(0)
-    //seed 0 gives player 1 a baron, and player 2 a prince
-    val game = Game.startMatch(Some(players(0))).exec(Game(players))
+    // use this randomizer for tests that need specific card
+    val stackedDeckRandomizer = Randomizer(
+      shuffleDeck = (s: Seq[Card]) => Seq(Guard, Baron, Guard, Princess, Handmaid, Prince) ++ s,
+      choosePlayer = (s: Seq[Player]) => s.head
+    )
+    //player 1 will get a baron and a prince, player 2 a guard
+    val game = Game.startMatch(Some(players.head))(stackedDeckRandomizer).exec(Game(players))
 
     def playBaronOnBadPlayer = for {
       p <- Game.currentPlayer
-      result <- Game.processTurn(p.name, Baron, Some("BADPLAYER"), None)
+      result <- Game.processTurn(p.name, Baron, Some("BADPLAYER"), None)(stackedDeckRandomizer)
       currentPlayer <- Game.currentPlayer
     } yield (result, currentPlayer)
 
     val (newGame, (message, currentPlayer)) = playBaronOnBadPlayer(game)
 
     message.isLeft should be(true)
-    currentPlayer.name should be(players(0))
+    currentPlayer.name should be(players.head)
+    newGame should be(game)
   }
 
   it should "fail if the targeted player is protected" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
-    implicit val r = new Random(0)
-    //seed 0 gives player 1 a baron, and player 2 a prince
-    val game = Game.startMatch(Some(players(0))).exec(Game(players))
+    // use this randomizer for tests that need specific card
+    val stackedDeckRandomizer = Randomizer(
+      shuffleDeck = (s: Seq[Card]) => Seq(Guard, Baron, Guard, Princess, Handmaid, Prince) ++ s,
+      choosePlayer = (s: Seq[Player]) => s.head
+    )
+    //player 1 will get a baron and a prince, player 2 a guard
+    val game = Game.startMatch(Some(players.head))(stackedDeckRandomizer).exec(Game(players))
 
     def playBaronOnProtectedPlayer = for {
-      _ <- Game.protectPlayer(players(1), true)
+      _ <- Game.protectPlayer(players(1), isProtected = true)
       p <- Game.currentPlayer
-      result <- Game.processTurn(p.name, Baron, Some(players(1)), None)
+      result <- Game.processTurn(p.name, Baron, Some(players(1)), None)(stackedDeckRandomizer)
       currentPlayer <- Game.currentPlayer
     } yield (result, currentPlayer)
 
-    val (newGame, (message, currentPlayer)) = playBaronOnProtectedPlayer(game)
+    val (message, currentPlayer) = playBaronOnProtectedPlayer.eval(game)
 
     message.isLeft should be(true)
-    currentPlayer.name should be(players(0))
+    currentPlayer.name should be(players.head)
   }
 
   it should "fail if the targeted player is eliminated" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
-    implicit val r = new Random(0)
-    //seed 0 gives player 1 a baron, and player 2 a prince
-    val game = Game.startMatch(Some(players(0))).exec(Game(players))
+    // use this randomizer for tests that need specific card
+    val stackedDeckRandomizer = Randomizer(
+      shuffleDeck = (s: Seq[Card]) => Seq(Guard, Baron, Guard, Princess, Handmaid, Prince) ++ s,
+      choosePlayer = (s: Seq[Player]) => s.head
+    )
+    //player 1 will get a baron and a prince, player 2 a guard
+    val game = Game.startMatch(Some(players.head))(stackedDeckRandomizer).exec(Game(players))
 
     def playBaronOnEliminatedPlayer = for {
-      _ <- Game.eliminatePlayer(players(1), true)
+      _ <- Game.eliminatePlayer(players(1), isEliminated = true)
       p <- Game.currentPlayer
-      result <- Game.processTurn(p.name, Baron, Some(players(1)), None)
+      result <- Game.processTurn(p.name, Baron, Some(players(1)), None)(stackedDeckRandomizer)
       currentPlayer <- Game.currentPlayer
     } yield (result, currentPlayer)
 
-    val (newGame, (message, currentPlayer)) = playBaronOnEliminatedPlayer(game)
+    val (message, currentPlayer) = playBaronOnEliminatedPlayer.eval(game)
 
     message.isLeft should be(true)
-    currentPlayer.name should be(players(0))
+    currentPlayer.name should be(players.head)
   }
 
   it should "allow the player to play with no effect if every other player is eliminated or protected" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
-    implicit val r = new Random(0)
-    //seed 0 gives player 1 a baron, and player 2 a prince
-    val game = Game.startMatch(Some(players(0))).exec(Game(players))
+    // use this randomizer for tests that need specific card
+    val stackedDeckRandomizer = Randomizer(
+      shuffleDeck = (s: Seq[Card]) => Seq(Guard, Baron, Guard, Princess, Handmaid, Prince) ++ s,
+      choosePlayer = (s: Seq[Player]) => s.head
+    )
+    //player 1 will get a baron and a prince, player 2 a guard
+    val game = Game.startMatch(Some(players.head))(stackedDeckRandomizer).exec(Game(players))
 
     def protectOrEliminateEveryoneThenPlay = for {
-      _ <- Game.protectPlayer(players(1), true)
-      _ <- Game.eliminatePlayer(players(2), true)
-      _ <- Game.protectPlayer(players(3), true)
-      result <- Game.processTurn(players(0), Baron, None, None)
+      _ <- Game.protectPlayer(players(1), isProtected = true)
+      _ <- Game.eliminatePlayer(players(2), isEliminated = true)
+      _ <- Game.protectPlayer(players(3), isProtected = true)
+      result <- Game.processTurn(players.head, Baron, None, None)(stackedDeckRandomizer)
       p <- Game.currentPlayer
     } yield (p, result)
 
@@ -1160,9 +1309,14 @@ class EngineSpec extends FlatSpec with Matchers {
 
   it should "fail if a target is not supplied" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
-    implicit val r = new Random(432345)
+    // use this randomizer for tests that need specific card
+    val stackedDeckRandomizer = Randomizer(
+      shuffleDeck = (s: Seq[Card]) => Seq(Guard, Baron, Guard, Princess, Handmaid, Prince) ++ s,
+      choosePlayer = (s: Seq[Player]) => s.head
+    )
+    //player 1 will get a baron and a prince, player 2 a guard
     val game = Game(players)
-    val (game1, result1) = Game.processTurn(players(0), Baron, None, None).apply(game)
+    val (game1, result1) = Game.processTurn(players.head, Baron, None, None)(stackedDeckRandomizer).apply(game)
     game1 should be(game)
     result1.isLeft should be(true)
   }
@@ -1171,14 +1325,18 @@ class EngineSpec extends FlatSpec with Matchers {
 
   it should "cause the player to become protected" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
-    implicit val r = new Random(5)
-    //seed 5 gives player 1 a handmaid
-    val game = Game.startMatch(Some(players(0))).exec(Game(players))
+    // use this randomizer for tests that need specific card
+    val stackedDeckRandomizer = Randomizer(
+      shuffleDeck = (s: Seq[Card]) => Seq(Guard, Handmaid) ++ s,
+      choosePlayer = (s: Seq[Player]) => s.head
+    )
+    //player 1 will get a Handmaid
+    val game = Game.startMatch(Some(players.head))(stackedDeckRandomizer).exec(Game(players))
 
     def playHandmaid = for {
       p <- Game.currentPlayer
-      result <- Game.processTurn(p.name, Handmaid, None, None)
-      p1 <- Game.getPlayer(players(0))
+      result <- Game.processTurn(p.name, Handmaid, None, None)(stackedDeckRandomizer)
+      p1 <- Game.getPlayer(players.head)
     } yield (p1.get, result)
 
     val (protectedPlayer, message) = playHandmaid.eval(game)
@@ -1192,13 +1350,17 @@ class EngineSpec extends FlatSpec with Matchers {
 
   it should "cause the targeted player to discard their hand" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
-    implicit val r = new Random(7)
-    //seed 7 gives player 1 a prince, and player 2 a guard
-    val game = Game.startMatch(Some(players(0))).exec(Game(players))
+    // use this randomizer for tests that need specific card
+    val stackedDeckRandomizer = Randomizer(
+      shuffleDeck = (s: Seq[Card]) => Seq(Guard, Prince, Guard) ++ s,
+      choosePlayer = (s: Seq[Player]) => s.head
+    )
+    //player 1 will get a prince, player 2 a guard
+    val game = Game.startMatch(Some(players.head))(stackedDeckRandomizer).exec(Game(players))
 
     def playPrinceOnPlayer = for {
       p <- Game.currentPlayer
-      result <- Game.processTurn(p.name, Prince, Some(players(1)), None)
+      result <- Game.processTurn(p.name, Prince, Some(players(1)), None)(stackedDeckRandomizer)
       currentPlayer <- Game.currentPlayer
     } yield (result, currentPlayer)
 
@@ -1216,7 +1378,7 @@ class EngineSpec extends FlatSpec with Matchers {
       burnCard = Seq(Princess)
     )
 
-    val (newGame, results) = Game.processTurn("Tyler", Prince, Some("Kevin"), None)(new Random(1423))(game)
+    val results = Game.processTurn("Tyler", Prince, Some("Kevin"), None)(basicRandomizer).eval(game)
 
     //because the burn card was a Princess, players(1) should have drawn it and won the last round
     results.isRight should be(true)
@@ -1225,55 +1387,67 @@ class EngineSpec extends FlatSpec with Matchers {
 
   it should "fail if the targeted player is protected" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
-    implicit val r = new Random(7)
-    //seed 7 gives player 1 a prince, and player 2 a guard
-    val game = Game.startMatch(Some(players(0))).exec(Game(players))
+    // use this randomizer for tests that need specific card
+    val stackedDeckRandomizer = Randomizer(
+      shuffleDeck = (s: Seq[Card]) => Seq(Guard, Prince, Guard) ++ s,
+      choosePlayer = (s: Seq[Player]) => s.head
+    )
+    //player 1 will get a prince, player 2 a guard
+    val game = Game.startMatch(Some(players.head))(stackedDeckRandomizer).exec(Game(players))
 
     def playPrinceOnProtectedPlayer = for {
-      _ <- Game.protectPlayer(players(1), true)
+      _ <- Game.protectPlayer(players(1), isProtected = true)
       p <- Game.currentPlayer
-      result <- Game.processTurn(p.name, Prince, Some(players(1)), None)
+      result <- Game.processTurn(p.name, Prince, Some(players(1)), None)(stackedDeckRandomizer)
       currentPlayer <- Game.currentPlayer
     } yield (result, currentPlayer)
 
-    val (newGame, (message, currentPlayer)) = playPrinceOnProtectedPlayer(game)
+    val (message, currentPlayer) = playPrinceOnProtectedPlayer.eval(game)
 
     message.isLeft should be(true)
-    currentPlayer.name should be(players(0))
+    currentPlayer.name should be(players.head)
   }
 
   it should "fail if the targeted player is eliminated" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
-    implicit val r = new Random(7)
-    //seed 7 gives player 1 a prince, and player 2 a guard
-    val game = Game.startMatch(Some(players(0))).exec(Game(players))
+    // use this randomizer for tests that need specific card
+    val stackedDeckRandomizer = Randomizer(
+      shuffleDeck = (s: Seq[Card]) => Seq(Guard, Prince, Guard) ++ s,
+      choosePlayer = (s: Seq[Player]) => s.head
+    )
+    //player 1 will get a prince, player 2 a guard
+    val game = Game.startMatch(Some(players.head))(stackedDeckRandomizer).exec(Game(players))
 
     def playPrinceOnEliminatedPlayer = for {
-      _ <- Game.eliminatePlayer(players(1), true)
+      _ <- Game.eliminatePlayer(players(1), isEliminated = true)
       p <- Game.currentPlayer
-      result <- Game.processTurn(p.name, Prince, Some(players(1)), None)
+      result <- Game.processTurn(p.name, Prince, Some(players(1)), None)(stackedDeckRandomizer)
       currentPlayer <- Game.currentPlayer
     } yield (result, currentPlayer)
 
-    val (newGame, (message, currentPlayer)) = playPrinceOnEliminatedPlayer(game)
+    val (message, currentPlayer) = playPrinceOnEliminatedPlayer.eval(game)
 
     message.isLeft should be(true)
-    currentPlayer.name should be(players(0))
+    currentPlayer.name should be(players.head)
   }
 
   it should "force the player to target themself if every other player is eliminated or protected" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
-    implicit val r = new Random(7)
-    //seed 7 gives player 1 a prince and a guard
-    val game = Game.startMatch(Some(players(0))).exec(Game(players))
+    // use this randomizer for tests that need specific card
+    val stackedDeckRandomizer = Randomizer(
+      shuffleDeck = (s: Seq[Card]) => Seq(Guard, Prince, Guard) ++ s,
+      choosePlayer = (s: Seq[Player]) => s.head
+    )
+    //player 1 will get a prince, player 2 a guard
+    val game = Game.startMatch(Some(players.head))(stackedDeckRandomizer).exec(Game(players))
 
     def protectOrEliminateEveryoneThenPlay = for {
-      _ <- Game.protectPlayer(players(1), true)
-      _ <- Game.protectPlayer(players(2), true)
-      _ <- Game.protectPlayer(players(3), true)
-      result <- Game.processTurn(players(0), Prince, None, None)
+      _ <- Game.protectPlayer(players(1), isProtected = true)
+      _ <- Game.protectPlayer(players(2), isProtected = true)
+      _ <- Game.protectPlayer(players(3), isProtected = true)
+      result <- Game.processTurn(players.head, Prince, None, None)(stackedDeckRandomizer)
       p2 <- Game.currentPlayer
-      result2 <- Game.processTurn(players(0), Prince, Some(players(0)), None)
+      result2 <- Game.processTurn(players.head, Prince, Some(players.head), None)(stackedDeckRandomizer)
       p <- Game.currentPlayer
     } yield (p, result, result2, p2)
 
@@ -1281,40 +1455,50 @@ class EngineSpec extends FlatSpec with Matchers {
     result.isLeft should be(true)
     result2.isRight should be(true)
     nextPlayer.name should be(players(1))
+    p2.name should be(players.head)
     newGame.discard should contain only(Guard, Prince)
 
   }
 
   it should "fail if a player not in the game is targeted" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
-    implicit val r = new Random(7)
-    //seed 7 gives player 1 a prince
-    val game = Game.startMatch(Some(players(0))).exec(Game(players))
+    // use this randomizer for tests that need specific card
+    val stackedDeckRandomizer = Randomizer(
+      shuffleDeck = (s: Seq[Card]) => Seq(Guard, Prince, Guard) ++ s,
+      choosePlayer = (s: Seq[Player]) => s.head
+    )
+    //player 1 will get a prince, player 2 a guard
+    val game = Game.startMatch(Some(players.head))(stackedDeckRandomizer).exec(Game(players))
 
     def playPrinceOnBadPlayer = for {
       p <- Game.currentPlayer
-      result <- Game.processTurn(p.name, Prince, Some("BADPLAYER"), None)
+      result <- Game.processTurn(p.name, Prince, Some("BADPLAYER"), None)(stackedDeckRandomizer)
       currentPlayer <- Game.currentPlayer
     } yield (result, currentPlayer)
 
     val (newGame, (message, currentPlayer)) = playPrinceOnBadPlayer(game)
 
     message.isLeft should be(true)
-    currentPlayer.name should be(players(0))
+    currentPlayer.name should be(players.head)
+    newGame should be(game)
   }
 
   behavior of "The king card"
 
   it should "switch the remaining card in the current player's hand with the target player" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
-    implicit val r = new Random(18)
-    //seed 18 gives player 1 a King and a handmaid, and player 2 a priest
-    val game = Game.startMatch(Some(players(0))).exec(Game(players))
+    // use this randomizer for tests that need specific card
+    val stackedDeckRandomizer = Randomizer(
+      shuffleDeck = (s: Seq[Card]) => Seq(Guard, King, Priest, Guard, Guard, Handmaid) ++ s,
+      choosePlayer = (s: Seq[Player]) => s.head
+    )
+    //player 1 will get a king and a handmaid, player 2 a priest
+    val game = Game.startMatch(Some(players.head))(stackedDeckRandomizer).exec(Game(players))
 
     def playPrinceOnPlayer = for {
       p <- Game.currentPlayer
-      result <- Game.processTurn(p.name, King, Some(players(1)), None)
-      kingPlayer <- Game.getPlayer(players(0))
+      result <- Game.processTurn(p.name, King, Some(players(1)), None)(stackedDeckRandomizer)
+      kingPlayer <- Game.getPlayer(players.head)
       currentPlayer <- Game.currentPlayer
     } yield (result, kingPlayer.get, currentPlayer)
 
@@ -1323,59 +1507,71 @@ class EngineSpec extends FlatSpec with Matchers {
     message.isRight should be(true)
     currentPlayer.name should be(players(1))
     currentPlayer.hand should contain(Handmaid)
-    kingPlayer.hand should contain only (Priest)
-    newGame.discard should contain only (King)
+    kingPlayer.hand should contain only Priest
+    newGame.discard should contain only King
   }
 
   it should "fail if the targeted player is protected" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
-    implicit val r = new Random(18)
-    //seed 18 gives player 1 a King and a handmaid, and player 2 a priest
-    val game = Game.startMatch(Some(players(0))).exec(Game(players))
+    // use this randomizer for tests that need specific card
+    val stackedDeckRandomizer = Randomizer(
+      shuffleDeck = (s: Seq[Card]) => Seq(Guard, King, Priest, Guard, Guard, Handmaid) ++ s,
+      choosePlayer = (s: Seq[Player]) => s.head
+    )
+    //player 1 will get a king and a handmaid, player 2 a priest
+    val game = Game.startMatch(Some(players.head))(stackedDeckRandomizer).exec(Game(players))
 
     def playKingOnProtectedPlayer = for {
-      _ <- Game.protectPlayer(players(1), true)
+      _ <- Game.protectPlayer(players(1), isProtected = true)
       p <- Game.currentPlayer
-      result <- Game.processTurn(p.name, King, Some(players(1)), None)
+      result <- Game.processTurn(p.name, King, Some(players(1)), None)(stackedDeckRandomizer)
       currentPlayer <- Game.currentPlayer
     } yield (result, currentPlayer)
 
     val (newGame, (message, currentPlayer)) = playKingOnProtectedPlayer(game)
 
     message.isLeft should be(true)
-    currentPlayer.name should be(players(0))
+    currentPlayer.name should be(players.head)
   }
 
   it should "fail if the targeted player is eliminated" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
-    implicit val r = new Random(18)
-    //seed 18 gives player 1 a King and a handmaid, and player 2 a priest
-    val game = Game.startMatch(Some(players(0))).exec(Game(players))
+    // use this randomizer for tests that need specific card
+    val stackedDeckRandomizer = Randomizer(
+      shuffleDeck = (s: Seq[Card]) => Seq(Guard, King, Priest, Guard, Guard, Handmaid) ++ s,
+      choosePlayer = (s: Seq[Player]) => s.head
+    )
+    //player 1 will get a king and a handmaid, player 2 a priest
+    val game = Game.startMatch(Some(players.head))(stackedDeckRandomizer).exec(Game(players))
 
     def playKingOnEliminatedPlayer = for {
-      _ <- Game.eliminatePlayer(players(1), true)
+      _ <- Game.eliminatePlayer(players(1), isEliminated = true)
       p <- Game.currentPlayer
-      result <- Game.processTurn(p.name, King, Some(players(1)), None)
+      result <- Game.processTurn(p.name, King, Some(players(1)), None)(stackedDeckRandomizer)
       currentPlayer <- Game.currentPlayer
     } yield (result, currentPlayer)
 
-    val (newGame, (message, currentPlayer)) = playKingOnEliminatedPlayer(game)
+    val (message, currentPlayer) = playKingOnEliminatedPlayer.eval(game)
 
     message.isLeft should be(true)
-    currentPlayer.name should be(players(0))
+    currentPlayer.name should be(players.head)
   }
 
   it should "allow the player to play with no effect if every other player is eliminated or protected" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
-    implicit val r = new Random(18)
-    //seed 18 gives player 1 a King and a handmaid, and player 2 a priest
-    val game = Game.startMatch(Some(players(0))).exec(Game(players))
+    // use this randomizer for tests that need specific card
+    val stackedDeckRandomizer = Randomizer(
+      shuffleDeck = (s: Seq[Card]) => Seq(Guard, King, Priest, Guard, Guard, Handmaid) ++ s,
+      choosePlayer = (s: Seq[Player]) => s.head
+    )
+    //player 1 will get a king and a handmaid, player 2 a priest
+    val game = Game.startMatch(Some(players.head))(stackedDeckRandomizer).exec(Game(players))
 
     def protectOrEliminateEveryoneThenPlay = for {
-      _ <- Game.protectPlayer(players(1), true)
-      _ <- Game.eliminatePlayer(players(2), true)
-      _ <- Game.protectPlayer(players(3), true)
-      result <- Game.processTurn(players(0), King, None, None)
+      _ <- Game.protectPlayer(players(1), isProtected = true)
+      _ <- Game.eliminatePlayer(players(2), isEliminated = true)
+      _ <- Game.protectPlayer(players(3), isProtected = true)
+      result <- Game.processTurn(players.head, King, None, None)(stackedDeckRandomizer)
       p <- Game.currentPlayer
     } yield (p, result)
 
@@ -1387,66 +1583,83 @@ class EngineSpec extends FlatSpec with Matchers {
 
   it should "fail if a player not in the game is targeted" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
-    implicit val r = new Random(18)
-    //seed 18 gives player 1 a King and a handmaid, and player 2 a priest
-    val game = Game.startMatch(Some(players(0))).exec(Game(players))
+    // use this randomizer for tests that need specific card
+    val stackedDeckRandomizer = Randomizer(
+      shuffleDeck = (s: Seq[Card]) => Seq(Guard, King, Priest, Guard, Guard, Handmaid) ++ s,
+      choosePlayer = (s: Seq[Player]) => s.head
+    )
+    //player 1 will get a king and a handmaid, player 2 a priest
+    val game = Game.startMatch(Some(players.head))(stackedDeckRandomizer).exec(Game(players))
 
     def playKingOnBadplayer = for {
       p <- Game.currentPlayer
-      result <- Game.processTurn(p.name, Priest, Some("BADPLAYER"), None)
+      result <- Game.processTurn(p.name, Priest, Some("BADPLAYER"), None)(stackedDeckRandomizer)
       currentPlayer <- Game.currentPlayer
     } yield (result, currentPlayer)
 
     val (newGame, (message, currentPlayer)) = playKingOnBadplayer(game)
 
     message.isLeft should be(true)
-    currentPlayer.name should be(players(0))
+    currentPlayer.name should be(players.head)
+    newGame should be(game)
   }
 
   behavior of "The countess card"
 
   it should "cause discarding a prince to fail" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
-    implicit val r = new Random(52)
-    //seed 52 gives player 1 a Countess and a Prince
-    val game = Game.startMatch(Some(players(0))).exec(Game(players))
+    // use this randomizer for tests that need specific card
+    val stackedDeckRandomizer = Randomizer(
+      shuffleDeck = (s: Seq[Card]) => Seq(Guard, Countess, Priest, Guard, Guard, Prince) ++ s,
+      choosePlayer = (s: Seq[Player]) => s.head
+    )
+    //player 1 will get a countess and a prince
+    val game = Game.startMatch(Some(players.head))(stackedDeckRandomizer).exec(Game(players))
 
     def tryToDiscardPrince = for {
-      result <- Game.processTurn(players(0), Prince, Some(players(1)), None)
+      result <- Game.processTurn(players.head, Prince, Some(players(1)), None)(stackedDeckRandomizer)
       p <- Game.currentPlayer
     } yield (p, result)
 
     val (nextPlayer, result) = tryToDiscardPrince.eval(game)
     result.isLeft should be(true)
-    nextPlayer.name should be(players(0))
+    nextPlayer.name should be(players.head)
 
   }
 
   it should "cause discarding a king to fail" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
-    implicit val r = new Random(475)
-    //seed 475 gives player 1 a Countess and a King
-    val game = Game.startMatch(Some(players(0))).exec(Game(players))
+    // use this randomizer for tests that need specific card
+    val stackedDeckRandomizer = Randomizer(
+      shuffleDeck = (s: Seq[Card]) => Seq(Guard, Countess, Priest, Guard, Guard, King) ++ s,
+      choosePlayer = (s: Seq[Player]) => s.head
+    )
+    //player 1 will get a countess and a king
+    val game = Game.startMatch(Some(players.head))(stackedDeckRandomizer).exec(Game(players))
 
     def tryToDiscardKing = for {
-      result <- Game.processTurn(players(0), King, Some(players(1)), None)
+      result <- Game.processTurn(players.head, King, Some(players(1)), None)(stackedDeckRandomizer)
       p <- Game.currentPlayer
     } yield (p, result)
 
     val (nextPlayer, result) = tryToDiscardKing.eval(game)
     result.isLeft should be(true)
-    nextPlayer.name should be(players(0))
+    nextPlayer.name should be(players.head)
 
   }
 
   it should "have no effect when discarded" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
-    implicit val r = new Random(24)
-    //seed 24 gives player 1 a Countess and a guard
-    val game = Game.startMatch(Some(players(0))).exec(Game(players))
+    // use this randomizer for tests that need specific card
+    val stackedDeckRandomizer = Randomizer(
+      shuffleDeck = (s: Seq[Card]) => Seq(Guard, Countess, Priest, Guard, Guard, Guard) ++ s,
+      choosePlayer = (s: Seq[Player]) => s.head
+    )
+    //player 1 will get a countess and a guard
+    val game = Game.startMatch(Some(players.head))(stackedDeckRandomizer).exec(Game(players))
 
     def discardCountess = for {
-      result <- Game.processTurn(players(0), Countess, None, None)
+      result <- Game.processTurn(players.head, Countess, None, None)(stackedDeckRandomizer)
       p <- Game.currentPlayer
     } yield (p, result)
 
@@ -1460,14 +1673,18 @@ class EngineSpec extends FlatSpec with Matchers {
 
   it should "eliminate the player when discarded" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
-    implicit val r = new Random(3)
-    //seed 3 gives player 1 a Princess
-    val game = Game.startMatch(Some(players(0))).exec(Game(players))
+    // use this randomizer for tests that need specific card
+    val stackedDeckRandomizer = Randomizer(
+      shuffleDeck = (s: Seq[Card]) => Seq(Guard, Princess) ++ s,
+      choosePlayer = (s: Seq[Player]) => s.head
+    )
+    //player 1 will get a princess
+    val game = Game.startMatch(Some(players.head))(stackedDeckRandomizer).exec(Game(players))
 
     def discardPrincess = for {
-      result <- Game.processTurn(players(0), Princess, None, None)
+      result <- Game.processTurn(players.head, Princess, None, None)(stackedDeckRandomizer)
       p <- Game.currentPlayer
-      princessPlayer <- Game.getPlayer(players(0))
+      princessPlayer <- Game.getPlayer(players.head)
     } yield (p, princessPlayer.get, result)
 
     val (nextPlayer, princessPlayer, result) = discardPrincess.eval(game)
@@ -1478,12 +1695,16 @@ class EngineSpec extends FlatSpec with Matchers {
 
   it should "eliminate the player forced to discard it by the prince" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
-    implicit val r = new Random(744)
-    //seed 744 gives player 1 a prince and player 2 a Princess
-    val game = Game.startMatch(Some(players(0))).exec(Game(players))
+    // use this randomizer for tests that need specific card
+    val stackedDeckRandomizer = Randomizer(
+      shuffleDeck = (s: Seq[Card]) => Seq(Guard, Prince, Princess) ++ s,
+      choosePlayer = (s: Seq[Player]) => s.head
+    )
+    //player 1 will get a prince, player 2 a princess
+    val game = Game.startMatch(Some(players.head))(stackedDeckRandomizer).exec(Game(players))
 
     def forceDiscardOfPrincess = for {
-      result <- Game.processTurn(players(0), Prince, Some(players(1)), None)
+      result <- Game.processTurn(players.head, Prince, Some(players(1)), None)(stackedDeckRandomizer)
       p <- Game.currentPlayer
       eliminatedPlayer <- Game.getPlayer(players(1))
     } yield (p, eliminatedPlayer.get, result)
@@ -1496,17 +1717,21 @@ class EngineSpec extends FlatSpec with Matchers {
 
   it should "eliminate the player when they are forced to discard by their own prince" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
-    implicit val r = new Random(15)
-    //seed 15 gives player 1 a prince and a Princess
-    val game = Game.startMatch(Some(players(0))).exec(Game(players))
+    // use this randomizer for tests that need specific card
+    val stackedDeckRandomizer = Randomizer(
+      shuffleDeck = (s: Seq[Card]) => Seq(Guard, Prince, Prince, Prince, Prince, Princess) ++ s,
+      choosePlayer = (s: Seq[Player]) => s.head
+    )
+    //player 1 will get a princess and a prince
+    val game = Game.startMatch(Some(players.head))(stackedDeckRandomizer).exec(Game(players))
 
     def forceDiscardofPrincess = for {
-      _ <- Game.protectPlayer(players(1), true)
-      _ <- Game.protectPlayer(players(2), true)
-      _ <- Game.protectPlayer(players(3), true)
-      result <- Game.processTurn(players(0), Prince, Some(players(0)), None)
+      _ <- Game.protectPlayer(players(1), isProtected = true)
+      _ <- Game.protectPlayer(players(2), isProtected = true)
+      _ <- Game.protectPlayer(players(3), isProtected = true)
+      result <- Game.processTurn(players.head, Prince, Some(players.head), None)(stackedDeckRandomizer)
       p <- Game.currentPlayer
-      eliminatedPlayer <- Game.getPlayer(players(0))
+      eliminatedPlayer <- Game.getPlayer(players.head)
     } yield (p, eliminatedPlayer.get, result)
 
     val (nextPlayer, eliminatedPlayer, result) = forceDiscardofPrincess.eval(game)

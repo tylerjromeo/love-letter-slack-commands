@@ -89,7 +89,7 @@ object Main extends App with SimpleRoutingApp {
   implicit val system = ActorSystem("my-system")
   implicit val timeout: Timeout = Timeout(15.seconds)
 
-  val gameManager = new GameManager(new MemoryDataStore[Game]())(new Random())
+  val gameManager = new GameManager(new MemoryDataStore[Game](), new Random())
 
   val teamToken = "K6kOMrLxkZfHoZvKIbE2Guzm"
 

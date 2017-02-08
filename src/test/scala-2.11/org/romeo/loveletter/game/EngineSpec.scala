@@ -1725,7 +1725,7 @@ class EngineSpec extends FlatSpec with Matchers {
     //player 1 will get a princess and a prince
     val game = Game.startMatch(Some(players.head))(stackedDeckRandomizer).exec(Game(players))
 
-    def forceDiscardofPrincess = for {
+    def forceDiscardOfPrincess = for {
       _ <- Game.protectPlayer(players(1), isProtected = true)
       _ <- Game.protectPlayer(players(2), isProtected = true)
       _ <- Game.protectPlayer(players(3), isProtected = true)
@@ -1734,7 +1734,7 @@ class EngineSpec extends FlatSpec with Matchers {
       eliminatedPlayer <- Game.getPlayer(players.head)
     } yield (p, eliminatedPlayer.get, result)
 
-    val (nextPlayer, eliminatedPlayer, result) = forceDiscardofPrincess.eval(game)
+    val (nextPlayer, eliminatedPlayer, result) = forceDiscardOfPrincess.eval(game)
     result.isRight should be(true)
     nextPlayer.name should be(players(1))
     eliminatedPlayer.isEliminated should be(true)

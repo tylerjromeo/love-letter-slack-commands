@@ -168,8 +168,11 @@ object Main extends App with SimpleRoutingApp {
             validate(token == teamToken, "Request token does not match team") {
               respondWithMediaType(MediaTypes.`application/json`) {
                 complete {
-                  responseUrlMap.put(channelName + userName, responseUrl)
-                  val responses = runCommand(text, channelName, userName, responseUrl)
+                  // slack lets you ping users by typing their name either with or without an @ in front
+                  // this was causing confusion if they were distinct whule playing, so treat them the same
+                  val strippedUserName = if(userName.head == '@') userName.tail else userName
+                  responseUrlMap.put(channelName + strippedUserName, responseUrl)
+                  val responses = runCommand(text, channelName, strippedUserName, responseUrl)
                   //if the responses are only of one type, respond with it.
                   //Otherwise respond with the public message and send the private over the url
                   if (responses.isPrivateOnly) {

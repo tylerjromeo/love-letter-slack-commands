@@ -63,6 +63,8 @@ case object Guard extends Card {
             State.state(Left(Private(s"${p.name} is protected"))): State[Game, Either[Message, Message]]
           } else if (p.isEliminated) {
             State.state(Left(Private(s"${p.name} isn't in the match"))): State[Game, Either[Message, Message]]
+          } else if (p.name == discarder.name) {
+            State.state(Left(Private(s"You can't target yourself with Guard"))): State[Game, Either[Message, Message]]
           } else if (p.hand.contains(guess.get)) {
             Game.eliminatePlayer(p.name, isEliminated = true).map(_ => Right(s"You're right! ${p.name} is out"): Either[Message, Message])
           } else {
@@ -95,6 +97,8 @@ case object Priest extends Card {
           State.state(Left(Private(s"${p.name} is protected"))): State[Game, Either[Message, Message]]
         } else if (p.isEliminated) {
           State.state(Left(Private(s"${p.name} isn't in the match"))): State[Game, Either[Message, Message]]
+        } else if (p.name == discarder.name) {
+          State.state(Left(Private(s"You can't target yourself with Priest"))): State[Game, Either[Message, Message]]
         } else {
           State.state(Right(Private(s"${p.name} has a ${p.hand.head}"))): State[Game, Either[Message, Message]]
         }
@@ -124,6 +128,8 @@ case object Baron extends Card {
           State.state(Left(Private(s"${p.name} is protected"))): State[Game, Either[Message, Message]]
         } else if (p.isEliminated) {
           State.state(Left(Private(s"${p.name} isn't in the match"))): State[Game, Either[Message, Message]]
+        } else if (p.name == discarder.name) {
+          State.state(Left(Private(s"You can't target yourself with Baron"))): State[Game, Either[Message, Message]]
         } else {
           val playerCard = discarder.hand.diff(Seq(Baron)).head
           //discard hasn't been processed yet, so remove the baron for the comparison
@@ -219,6 +225,8 @@ case object King extends Card {
           State.state(Left(Private(s"${p.name} is protected"))): State[Game, Either[Message, Message]]
         } else if (p.isEliminated) {
           State.state(Left(Private(s"${p.name} isn't in the match"))): State[Game, Either[Message, Message]]
+        } else if (p.name == discarder.name) {
+          State.state(Left(Private(s"You can't target yourself with King"))): State[Game, Either[Message, Message]]
         } else {
           val playerCard = discarder.hand.diff(Seq(King)).head
           //discard hasn't been processed yet, so remove the king for the comparison

@@ -1025,6 +1025,20 @@ class EngineSpec extends FlatSpec with Matchers {
     result2.isLeft should be(true)
   }
 
+  it should "fail if the player targets themself" in {
+    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    // use this randomizer for tests that need specific card
+    val stackedDeckRandomizer = Randomizer(
+      shuffleDeck = (s: Seq[Card]) => Seq(Guard, Guard, Priest, Handmaid, Prince, Princess) ++ s,
+      choosePlayer = (s: Seq[Player]) => s.head
+    )
+    //player 1 will get a guard and a Princess, player 2 a priest
+    val game = Game.startMatch(Some(players.head))(stackedDeckRandomizer).exec(Game(players))
+    val (newGame, result1) = Game.processTurn(players.head, Guard, Some(players.head), Some(Princess))(stackedDeckRandomizer).apply(game)
+    newGame should be(game)
+    result1.isLeft should be(true)
+  }
+
   behavior of "The priest card"
 
   it should "show the card of the targeted player in the returned message" in {
@@ -1152,6 +1166,20 @@ class EngineSpec extends FlatSpec with Matchers {
     val game = Game(players)
     val (game1, result1) = Game.processTurn(players.head, Priest, None, None)(stackedDeckRandomizer).apply(game)
     game1 should be(game)
+    result1.isLeft should be(true)
+  }
+
+  it should "fail if the player targets themself" in {
+    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    // use this randomizer for tests that need specific card
+    val stackedDeckRandomizer = Randomizer(
+      shuffleDeck = (s: Seq[Card]) => Seq(Guard, Priest) ++ s,
+      choosePlayer = (s: Seq[Player]) => s.head
+    )
+    //player 1 will get a priest
+    val game = Game.startMatch(Some(players.head))(stackedDeckRandomizer).exec(Game(players))
+    val (newGame, result1) = Game.processTurn(players.head, Priest, Some(players.head), None)(stackedDeckRandomizer).apply(game)
+    newGame should be(game)
     result1.isLeft should be(true)
   }
 
@@ -1318,6 +1346,20 @@ class EngineSpec extends FlatSpec with Matchers {
     val game = Game(players)
     val (game1, result1) = Game.processTurn(players.head, Baron, None, None)(stackedDeckRandomizer).apply(game)
     game1 should be(game)
+    result1.isLeft should be(true)
+  }
+
+  it should "fail if the player targets themself" in {
+    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    // use this randomizer for tests that need specific card
+    val stackedDeckRandomizer = Randomizer(
+      shuffleDeck = (s: Seq[Card]) => Seq(Guard, Baron) ++ s,
+      choosePlayer = (s: Seq[Player]) => s.head
+    )
+    //player 1 will get a Baron
+    val game = Game.startMatch(Some(players.head))(stackedDeckRandomizer).exec(Game(players))
+    val (newGame, result1) = Game.processTurn(players.head, Baron, Some(players.head), None)(stackedDeckRandomizer).apply(game)
+    newGame should be(game)
     result1.isLeft should be(true)
   }
 
@@ -1602,6 +1644,20 @@ class EngineSpec extends FlatSpec with Matchers {
     message.isLeft should be(true)
     currentPlayer.name should be(players.head)
     newGame should be(game)
+  }
+
+  it should "fail if the player targets themself" in {
+    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    // use this randomizer for tests that need specific card
+    val stackedDeckRandomizer = Randomizer(
+      shuffleDeck = (s: Seq[Card]) => Seq(Guard, King) ++ s,
+      choosePlayer = (s: Seq[Player]) => s.head
+    )
+    //player 1 will get a King
+    val game = Game.startMatch(Some(players.head))(stackedDeckRandomizer).exec(Game(players))
+    val (newGame, result1) = Game.processTurn(players.head, King, Some(players.head), None)(stackedDeckRandomizer).apply(game)
+    newGame should be(game)
+    result1.isLeft should be(true)
   }
 
   behavior of "The countess card"

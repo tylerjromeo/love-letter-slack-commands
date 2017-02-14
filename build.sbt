@@ -10,6 +10,8 @@ resolvers += "spray repo" at "http://repo.spray.io"
 
 enablePlugins(JavaAppPackaging)
 
+mainClass in Compile := Some("org.romeo.loveletter.http.Main")
+
 libraryDependencies += "io.spray" %% "spray-can" % "1.3.3"
 libraryDependencies += "io.spray" %% "spray-routing" % "1.3.3"
 libraryDependencies += "io.spray" %%  "spray-json" % "1.3.2"

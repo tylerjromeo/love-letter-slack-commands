@@ -1,8 +1,6 @@
 package org.romeo.loveletter.cli.Main
 
-import java.lang.System
-
-import org.romeo.loveletter.game.{Game, GameManager}
+import org.romeo.loveletter.game.GameManager
 import org.romeo.loveletter.persistence.MemoryDataStore
 
 import scala.io.StdIn

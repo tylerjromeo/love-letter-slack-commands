@@ -16,7 +16,6 @@ import spray.json._
 import spray.routing.SimpleRoutingApp
 import scala.concurrent.duration._
 import scala.concurrent.Future
-import scala.util.Properties
 import org.romeo.loveletter.persistence.MemoryDataStore
 import spray.http._
 import spray.client.pipelining._

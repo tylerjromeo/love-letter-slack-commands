@@ -263,3 +263,95 @@ case object Princess extends Card {
     Game.eliminatePlayer(discarder.name, isEliminated = true).map(_ => Right(s"${discarder.name} discarded a $name and is eliminated"): Either[String, Message])
   }
 }
+
+//PREMIUM cards
+
+case object Jester extends Card {
+  val value = 0
+  val name = "Jester"
+  val description = "If the chose player wins the round, gain an Affection Token."
+  val requiresTarget: Boolean = false
+  val requiresGuess: Boolean = false
+
+  override def doAction(discarder: Player, targetName: Option[String] = None, guess: Option[Card] = None): State[Game, Either[Message, Message]] = ???
+}
+
+case object Assassin extends Card {
+  val value = 0
+  val name = "Assassin"
+  val description = "A player using a Guard on you is out and you aren't. Discard and draw a new card."
+  val requiresTarget: Boolean = false
+  val requiresGuess: Boolean = false
+
+  override def doAction(discarder: Player, targetName: Option[String] = None, guess: Option[Card] = None): State[Game, Either[Message, Message]] = ???
+}
+
+case object Cardinal extends Card {
+  val value = 2
+  val name = "Cardinal"
+  val description = "Two players switch hands; you look at one."
+  val requiresTarget: Boolean = false
+  val requiresGuess: Boolean = false
+
+  override def doAction(discarder: Player, targetName: Option[String] = None, guess: Option[Card] = None): State[Game, Either[Message, Message]] = ???
+}
+
+case object Baroness extends Card {
+  val value = 3
+  val name = "Baroness"
+  val description = "Choose 1 or 2 players. Look at their hands."
+  val requiresTarget: Boolean = false
+  val requiresGuess: Boolean = false
+
+  override def doAction(discarder: Player, targetName: Option[String] = None, guess: Option[Card] = None): State[Game, Either[Message, Message]] = ???
+}
+
+case object Sycophant extends Card {
+  val value = 4
+  val name = "Sycophant"
+  val description = "Choose a player. The next card must choose them."
+  val requiresTarget: Boolean = false
+  val requiresGuess: Boolean = false
+
+  override def doAction(discarder: Player, targetName: Option[String] = None, guess: Option[Card] = None): State[Game, Either[Message, Message]] = ???
+}
+
+case object Count extends Card {
+  val value = 5
+  val name = "Count"
+  val description = "If in discard at the end of the round, add 1 to the number of the card in your hand."
+  val requiresTarget: Boolean = false
+  val requiresGuess: Boolean = false
+
+  override def doAction(discarder: Player, targetName: Option[String] = None, guess: Option[Card] = None): State[Game, Either[Message, Message]] = ???
+}
+
+case object Constable extends Card {
+  val value = 6
+  val name = "Constable"
+  val description = "If eliminated with this card in your discard pile, gan an Affection Token."
+  val requiresTarget: Boolean = false
+  val requiresGuess: Boolean = false
+
+  override def doAction(discarder: Player, targetName: Option[String] = None, guess: Option[Card] = None): State[Game, Either[Message, Message]] = ???
+}
+
+case object DowagerQueen extends Card {
+  val value = 7
+  val name = "Dowager Queen"
+  val description = "Compare hands with another player; higher number is out."
+  val requiresTarget: Boolean = false
+  val requiresGuess: Boolean = false
+
+  override def doAction(discarder: Player, targetName: Option[String] = None, guess: Option[Card] = None): State[Game, Either[Message, Message]] = ???
+}
+
+case object Bishop extends Card {
+  val value = 9
+  val name = "Bishop"
+  val description = "Guess a player's hand. Gain an Affection Token if correct. They may discard their hand and draw a new card."
+  val requiresTarget: Boolean = false
+  val requiresGuess: Boolean = false
+
+  override def doAction(discarder: Player, targetName: Option[String] = None, guess: Option[Card] = None): State[Game, Either[Message, Message]] = ???
+}

@@ -86,12 +86,10 @@ object Main extends App with SimpleRoutingApp {
     }
   }
 
-  implicit val system = ActorSystem("my-system")
+  implicit val system = ActorSystem("slackbot-system")
   implicit val timeout: Timeout = Timeout(15.seconds)
 
   val gameManager = new GameManager(new MemoryDataStore[Game](), new Random())
-
-  val teamToken = "K6kOMrLxkZfHoZvKIbE2Guzm"
 
   val helpText =
     """
@@ -160,16 +158,17 @@ object Main extends App with SimpleRoutingApp {
     }
   }
 
-  startServer(interface = "0.0.0.0", port = Properties.envOrElse("PORT", "8080").toInt) {
+  startServer(interface = "0.0.0.0", port = Properties.port) {
     pathSingleSlash {
       post {
         formFields('token, 'team_id, 'team_domain, 'channel_id, 'channel_name, 'user_id, 'user_name, 'command, 'text, 'response_url) {
           (token, teamId, teamDomain, channelId, channelName, userId, userName, command, text, responseUrl) =>
-            validate(token == teamToken, "Request token does not match team") {
+            // If a token is set in the environment Properties, check to make sure the request checks it. Otherwise let it through
+            validate(Properties.commandToken.forall(token == _), "Request token does not match team") {
               respondWithMediaType(MediaTypes.`application/json`) {
                 complete {
                   // slack lets you ping users by typing their name either with or without an @ in front
-                  // this was causing confusion if they were distinct whule playing, so treat them the same
+                  // this was causing confusion if they were distinct while playing, so treat them the same
                   val strippedUserName = if(userName.head == '@') userName.tail else userName
                   responseUrlMap.put(channelName + strippedUserName, responseUrl)
                   val responses = runCommand(text, channelName, strippedUserName, responseUrl)

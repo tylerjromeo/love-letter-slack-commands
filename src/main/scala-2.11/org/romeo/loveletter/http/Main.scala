@@ -85,6 +85,18 @@ object Main extends App with SimpleRoutingApp {
     }
   }
 
+  /**
+    * Remove the @ sign from a user name if it exists
+    * slack lets you "ping" users with either their username or their username with an @ in front. To remove confusion
+    * we accept both types of "ping"s
+    *
+    * @param userName
+    * @return the userName with the leading '@' removed, or the original string
+    */
+  def stripUserName(userName: String): String = {
+    if (userName.head == '@') userName.tail else userName
+  }
+
   implicit val system = ActorSystem("slackbot-system")
   implicit val timeout: Timeout = Timeout(15.seconds)
 
@@ -129,11 +141,13 @@ object Main extends App with SimpleRoutingApp {
 
     val params = text.split("\\s+")
     params(0) match {
-      case "start" if params.length >= 3 && params.length <= 5 => gameManager.startGame(channelName, params.tail) match {
-        case Left(message) => SlackResponse(privateMessage = true, message)
-        case Right(game) => {
-          val player1 = Game.currentPlayer.eval(game).name
-          SlackResponse(privateMessage = false, s"Game started!\nIt is $player1's turn")
+      case "start" if params.length >= 3 && params.length <= 5 => {
+        gameManager.startGame(channelName, params.tail.map(stripUserName)) match {
+          case Left(message) => SlackResponse(privateMessage = true, message)
+          case Right(game) => {
+            val player1 = Game.currentPlayer.eval(game).name
+            SlackResponse(privateMessage = false, s"Game started!\nIt is $player1's turn")
+          }
         }
       }
       case "quit" => {
@@ -143,7 +157,7 @@ object Main extends App with SimpleRoutingApp {
       case "hand" => SlackResponse(privateMessage = true, gameManager.getHandInfo(channelName, userName))
       case "play" | "discard" if params.length >= 2 => {
         val cardName = params(1)
-        val target = if (params.isDefinedAt(2)) Some(params(2)) else None
+        val target = if (params.isDefinedAt(2)) Some(stripUserName(params(2))) else None
         val guess = if (params.isDefinedAt(3)) Some(params(3)) else None
         playCard(channelName, cardName, target, guess)
       }
@@ -168,7 +182,7 @@ object Main extends App with SimpleRoutingApp {
                 complete {
                   // slack lets you ping users by typing their name either with or without an @ in front
                   // this was causing confusion if they were distinct while playing, so treat them the same
-                  val strippedUserName = if(userName.head == '@') userName.tail else userName
+                  val strippedUserName = stripUserName(userName)
                   responseUrlMap.put(channelName + strippedUserName, responseUrl)
                   val responses = runCommand(text, channelName, strippedUserName, responseUrl)
                   //if the responses are only of one type, respond with it.

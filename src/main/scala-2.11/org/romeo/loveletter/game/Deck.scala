@@ -27,7 +27,7 @@ trait Card {
   val requiresTarget: Boolean
   val requiresGuess: Boolean
 
-  def doAction(discarder: Player, targetName: Option[String], guess: Option[Card]): State[Game, Either[Message, Message]]
+  def doAction(discarder: Player, targetName: Option[String], guess: Option[Card]): State[Game, Either[String, Message]]
 
   override def toString: String =
     s"""$value: $name
@@ -46,31 +46,31 @@ case object Guard extends Card {
   val requiresTarget: Boolean = true
   val requiresGuess: Boolean = true
 
-  override def doAction(discarder: Player, targetName: Option[String], guess: Option[Card]): State[Game, Either[Message, Message]] = {
+  override def doAction(discarder: Player, targetName: Option[String], guess: Option[Card]): State[Game, Either[String, Message]] = {
     if (targetName.isEmpty || guess.isEmpty) {
       return Game.isEveryoneElseProtectedOrEliminated.map(if (_) {
         Right(s"Everyone is safe, $name discarded with no effect")
       } else {
-        Left(Private(s"A target and guess must be specified"))
+        Left(s"A target and guess must be specified")
       })
     }
     if (guess.get == Guard) {
-      State.state(Left(Private("You can't guess Guard")))
+      State.state(Left("You can't guess Guard"))
     } else {
       Game.getPlayer(targetName.get).flatMap(pOption => {
         pOption.map(p =>
           if (p.isProtected) {
-            State.state(Left(Private(s"${p.name} is protected"))): State[Game, Either[Message, Message]]
+            State.state[Game, Either[String, Message]](Left(s"${p.name} is protected"))
           } else if (p.isEliminated) {
-            State.state(Left(Private(s"${p.name} isn't in the match"))): State[Game, Either[Message, Message]]
+            State.state[Game, Either[String, Message]](Left(s"${p.name} isn't in the match"))
           } else if (p.name == discarder.name) {
-            State.state(Left(Private(s"You can't target yourself with Guard"))): State[Game, Either[Message, Message]]
+            State.state[Game, Either[String, Message]](Left(s"You can't target yourself with Guard"))
           } else if (p.hand.contains(guess.get)) {
-            Game.eliminatePlayer(p.name, isEliminated = true).map(_ => Right(s"You're right! ${p.name} is out"): Either[Message, Message])
+            Game.eliminatePlayer(p.name, isEliminated = true).map(_ => Right(s"You're right! ${p.name} is out"): Either[String, Message])
           } else {
-            State.state(Right(s"${p.name} does not have a ${guess.get.name}"): Either[Message, Message]): State[Game, Either[Message, Message]]
+            State.state[Game, Either[String, Message]](Right(s"${p.name} does not have a ${guess.get.name}"))
           }
-        ).getOrElse(State.state(Left(Private(s"${targetName.get} isn't in the game!")): Either[Message, Message]))
+        ).getOrElse(State.state[Game, Either[String, Message]](Left(s"${targetName.get} isn't in the game!")))
       })
     }
   }
@@ -83,26 +83,26 @@ case object Priest extends Card {
   val requiresTarget: Boolean = true
   val requiresGuess: Boolean = false
 
-  override def doAction(discarder: Player, targetName: Option[String], guess: Option[Card] = None): State[Game, Either[Message, Message]] = {
+  override def doAction(discarder: Player, targetName: Option[String], guess: Option[Card] = None): State[Game, Either[String, Message]] = {
     if (targetName.isEmpty) {
       return Game.isEveryoneElseProtectedOrEliminated.map(if (_) {
         Right(s"Everyone is safe, $name discarded with no effect")
       } else {
-        Left(Private(s"A target must be specified"))
+        Left(s"A target must be specified")
       })
     }
     Game.getPlayer(targetName.get).flatMap(pOption => {
       pOption.map(p =>
         if (p.isProtected) {
-          State.state(Left(Private(s"${p.name} is protected"))): State[Game, Either[Message, Message]]
+          State.state[Game, Either[String, Message]](Left(s"${p.name} is protected"))
         } else if (p.isEliminated) {
-          State.state(Left(Private(s"${p.name} isn't in the match"))): State[Game, Either[Message, Message]]
+          State.state[Game, Either[String, Message]](Left(s"${p.name} isn't in the match"))
         } else if (p.name == discarder.name) {
-          State.state(Left(Private(s"You can't target yourself with Priest"))): State[Game, Either[Message, Message]]
+          State.state[Game, Either[String, Message]](Left(s"You can't target yourself with Priest"))
         } else {
-          State.state(Right(Private(s"${p.name} has a ${p.hand.head}"))): State[Game, Either[Message, Message]]
+          State.state[Game, Either[String, Message]](Right(Private(s"${p.name} has a ${p.hand.head}")))
         }
-      ).getOrElse(State.state(Left(Private(s"${targetName.get} isn't in the game!")): Either[Message, Message]))
+      ).getOrElse(State.state[Game, Either[String, Message]](Left(s"${targetName.get} isn't in the game!")))
     })
   }
 }
@@ -114,35 +114,35 @@ case object Baron extends Card {
   val requiresTarget: Boolean = true
   val requiresGuess: Boolean = false
 
-  override def doAction(discarder: Player, targetName: Option[String], guess: Option[Card] = None): State[Game, Either[Message, Message]] = {
+  override def doAction(discarder: Player, targetName: Option[String], guess: Option[Card] = None): State[Game, Either[String, Message]] = {
     if (targetName.isEmpty) {
       return Game.isEveryoneElseProtectedOrEliminated.map(if (_) {
         Right(s"Everyone is safe, $name discarded with no effect")
       } else {
-        Left(Private(s"A target must be specified"))
+        Left(s"A target must be specified")
       })
     }
     Game.getPlayer(targetName.get).flatMap(pOption => {
       pOption.map(p => {
         if (p.isProtected) {
-          State.state(Left(Private(s"${p.name} is protected"))): State[Game, Either[Message, Message]]
+          State.state[Game, Either[String, Message]](Left(s"${p.name} is protected"))
         } else if (p.isEliminated) {
-          State.state(Left(Private(s"${p.name} isn't in the match"))): State[Game, Either[Message, Message]]
+          State.state[Game, Either[String, Message]](Left(s"${p.name} isn't in the match"))
         } else if (p.name == discarder.name) {
-          State.state(Left(Private(s"You can't target yourself with Baron"))): State[Game, Either[Message, Message]]
+          State.state[Game, Either[String, Message]](Left(s"You can't target yourself with Baron"))
         } else {
           val playerCard = discarder.hand.diff(Seq(Baron)).head
           //discard hasn't been processed yet, so remove the baron for the comparison
           val targetCard = p.hand.head
           if (targetCard.value > playerCard.value) {
-            Game.eliminatePlayer(discarder.name, isEliminated = true).map(_ => Right(s"${discarder.name} has been eliminated and discards a ${playerCard.name}")): State[Game, Either[Message, Message]]
+            Game.eliminatePlayer(discarder.name, isEliminated = true).map(_ => Right(s"${discarder.name} has been eliminated and discards a ${playerCard.name}"): Either[String, Message])
           } else if (targetCard.value < playerCard.value) {
-            Game.eliminatePlayer(p.name, isEliminated = true).map(_ => Right(s"${p.name} has been eliminated and discards a ${targetCard.name}")): State[Game, Either[Message, Message]]
+            Game.eliminatePlayer(p.name, isEliminated = true).map(_ => Right(s"${p.name} has been eliminated and discards a ${targetCard.name}"): Either[String, Message])
           } else {
-            State.state(Right("It is a tie. No one is eliminated")): State[Game, Either[Message, Message]]
+            State.state[Game, Either[String, Message]](Right("It is a tie. No one is eliminated"))
           }
         }
-      }).getOrElse(State.state(Left(Private(s"${targetName.get} isn't in the game!")): Either[Message, Message]))
+      }).getOrElse(State.state[Game, Either[String, Message]](Left(s"${targetName.get} isn't in the game!")))
     })
   }
 }
@@ -154,7 +154,7 @@ case object Handmaid extends Card {
   val requiresTarget: Boolean = false
   val requiresGuess: Boolean = false
 
-  override def doAction(discarder: Player, targetName: Option[String] = None, guess: Option[Card] = None): State[Game, Either[Message, Message]] = {
+  override def doAction(discarder: Player, targetName: Option[String] = None, guess: Option[Card] = None): State[Game, Either[String, Message]] = {
     Game.protectPlayer(discarder.name, isProtected = true).map(_ => Right(s"${discarder.name} is protected")) //HAMMAID
   }
 }
@@ -167,36 +167,36 @@ case object Prince extends Card {
   val requiresGuess: Boolean = false
   val privateResponse: Boolean = false
 
-  override def doAction(discarder: Player, targetName: Option[String], guess: Option[Card] = None): State[Game, Either[Message, Message]] = {
+  override def doAction(discarder: Player, targetName: Option[String], guess: Option[Card] = None): State[Game, Either[String, Message]] = {
     if (targetName.isEmpty) {
-      return State.state(Left(Private(s"A target must be specified"))): State[Game, Either[Message, Message]]
+      return State.state[Game, Either[String, Message]](Left(s"A target must be specified"))
     }
     if (discarder.hand.contains(Countess)) {
-      return State.state(Left(Private(s"Can't discard $name with Countess"))): State[Game, Either[Message, Message]]
+      return State.state[Game, Either[String, Message]](Left(s"Can't discard $name with Countess"))
     }
     Game.getPlayer(targetName.get).flatMap(pOption => {
       pOption.map(p =>
         if (p.isProtected) {
-          State.state(Left(Private(s"${p.name} is protected"))): State[Game, Either[Message, Message]]
+          State.state[Game, Either[String, Message]](Left(s"${p.name} is protected"))
         } else if (p.isEliminated) {
-          State.state(Left(Private(s"${p.name} isn't in the match"))): State[Game, Either[Message, Message]]
+          State.state[Game, Either[String, Message]](Left(s"${p.name} isn't in the match"))
         } else {
           //if you call this on yourself, you still have a prince in your hand, so remove that
           val cardToDiscard = (if (p.hand.length > 1) p.hand.diff(Seq(Prince)) else p.hand).head
 
-          def discardThenDraw: State[Game, Either[Message, Message]] = for {
+          def discardThenDraw: State[Game, Either[String, Message]] = for {
             discard <- Game.playerDiscard(p.name, cardToDiscard)
             _ <- Game.drawFromDeckOrBurnCard(p.name)
           } yield Right(s"${p.name} forced to discard a ${discard.head.name}")
 
-          def discardPrincess: State[Game, Either[Message, Message]] = for {
+          def discardPrincess: State[Game, Either[String, Message]] = for {
             discard <- Game.playerDiscard(p.name, cardToDiscard)
             _ <- Game.eliminatePlayer(p.name, isEliminated = true)
           } yield Right(s"${p.name} forced to discard a ${discard.head}. ${p.name} is eliminated")
 
           if (Princess == cardToDiscard) discardPrincess else discardThenDraw
         }
-      ).getOrElse(State.state(Left(Private(s"${targetName.get} isn't in the game!")): Either[Message, Message]))
+      ).getOrElse(State.state[Game, Either[String, Message]](Left(s"${targetName.get} isn't in the game!")))
     })
   }
 }
@@ -208,25 +208,24 @@ case object King extends Card {
   val requiresTarget: Boolean = true
   val requiresGuess: Boolean = false
 
-  override def doAction(discarder: Player, targetName: Option[String], guess: Option[Card] = None): State[Game, Either[Message, Message]] = {
+  override def doAction(discarder: Player, targetName: Option[String], guess: Option[Card] = None): State[Game, Either[String, Message]] = {
     if (targetName.isEmpty) {
-      return Game.isEveryoneElseProtectedOrEliminated.map(if (_) {
-        Right(s"Everyone is safe, $name discarded with no effect")
-      } else {
-        Left(Private(s"A target must be specified"))
-      })
+      return Game.isEveryoneElseProtectedOrEliminated.map {
+        case true => Right(s"Everyone is safe, $name discarded with no effect")
+        case false => Left(s"A target must be specified")
+      }
     }
     if (discarder.hand.contains(Countess)) {
-      return State.state(Left(Private(s"Can't discard $name with Countess"))): State[Game, Either[Message, Message]]
+      return State.state(Left(s"Can't discard $name with Countess")): State[Game, Either[String, Message]]
     }
     Game.getPlayer(targetName.get).flatMap(pOption => {
       pOption.map(p => {
         if (p.isProtected) {
-          State.state(Left(Private(s"${p.name} is protected"))): State[Game, Either[Message, Message]]
+          State.state[Game, Either[String, Message]](Left(s"${p.name} is protected"))
         } else if (p.isEliminated) {
-          State.state(Left(Private(s"${p.name} isn't in the match"))): State[Game, Either[Message, Message]]
+          State.state[Game, Either[String, Message]](Left(s"${p.name} isn't in the match"))
         } else if (p.name == discarder.name) {
-          State.state(Left(Private(s"You can't target yourself with King"))): State[Game, Either[Message, Message]]
+          State.state[Game, Either[String, Message]](Left(s"You can't target yourself with King"))
         } else {
           val playerCard = discarder.hand.diff(Seq(King)).head
           //discard hasn't been processed yet, so remove the king for the comparison
@@ -234,9 +233,9 @@ case object King extends Card {
           for {
             _ <- Game.updatePlayer(Some(p.copy(hand = Seq(playerCard))))
             _ <- Game.updatePlayer(Some(discarder.copy(hand = Seq(King, targetCard))))
-          } yield Right(s"${discarder.name} switched hands with ${p.name}"): Either[Message, Message]
+          } yield Right(s"${discarder.name} switched hands with ${p.name}"): Either[String, Message]
         }
-      }).getOrElse(State.state(Left(Private(s"${targetName.get} isn't in the game!")): Either[Message, Message]))
+      }).getOrElse(State.state[Game, Either[String, Message]](Left(s"${targetName.get} isn't in the game!"): Either[String, Message]))
     })
   }
 }
@@ -248,7 +247,7 @@ case object Countess extends Card {
   val requiresTarget: Boolean = false
   val requiresGuess: Boolean = false
 
-  override def doAction(discarder: Player, targetName: Option[String] = None, guess: Option[Card] = None): State[Game, Either[Message, Message]] = {
+  override def doAction(discarder: Player, targetName: Option[String] = None, guess: Option[Card] = None): State[Game, Either[String, Message]] = {
     State.state(Right("You discarded the Countess"))
   }
 }
@@ -260,7 +259,7 @@ case object Princess extends Card {
   val requiresTarget: Boolean = false
   val requiresGuess: Boolean = false
 
-  override def doAction(discarder: Player, targetName: Option[String] = None, guess: Option[Card] = None): State[Game, Either[Message, Message]] = {
-    Game.eliminatePlayer(discarder.name, isEliminated = true).map(_ => Right(s"${discarder.name} discarded a $name and is eliminated"): Either[Message, Message])
+  override def doAction(discarder: Player, targetName: Option[String] = None, guess: Option[Card] = None): State[Game, Either[String, Message]] = {
+    Game.eliminatePlayer(discarder.name, isEliminated = true).map(_ => Right(s"${discarder.name} discarded a $name and is eliminated"): Either[String, Message])
   }
 }

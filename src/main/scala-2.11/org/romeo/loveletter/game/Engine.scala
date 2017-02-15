@@ -34,19 +34,6 @@ case class Randomizer(
                        choosePlayer: (Seq[Player]) => Player
                      )
 
-trait GameState
-
-case class Error(message: String) extends GameState
-
-case class NotStarted(playerTurnName: String) extends GameState
-
-case class InProgress(playerTurnName: String) extends GameState
-
-case class MatchWon(winnerName: String) extends GameState
-
-case class GameWon(winnerName: String) extends GameState
-
-
 object Game {
 
   abstract class Message(val msg: String)
@@ -324,6 +311,16 @@ object Game {
         getOrElse(State.state(None)))
   }
 
+  trait TurnResult
+
+  case class PlayError(message: String) extends TurnResult
+
+  case class GameOver(lastTurnResult: Message, matchWinner: String, gameWinner: String) extends TurnResult
+
+  case class MatchOver(lastTurnResult: Message, matchWinner: String, nextPlayer: String) extends TurnResult
+
+  case class NextTurn(lastTurnResult: Message, nextPlayer: String) extends TurnResult
+
   /**
     * Iterate through one turn of the game. This function will:
     * if the player name passed in matches the current player, discard that card from their hand (else don't change the state)
@@ -336,40 +333,61 @@ object Game {
                   discard: Card,
                   targetName: Option[String] = None,
                   guess: Option[Card] = None)
-                 (implicit r: Randomizer): State[Game, Either[Message, Seq[Message]]] = {
+                 (implicit r: Randomizer): State[Game, TurnResult] = {
     //TODO: the return messages should be wrapped in types that indicate the state of the game. i.e. win, match over, in progress, error etc
 
-    def maybeDiscard(b: Boolean, name: String, card: Card): State[Game, _] = if (b) playerDiscard(name, card) else State.state(None)
+    def maybeDiscard(b: Boolean, name: String, card: Card): State[Game, _] = {
+      if (b) playerDiscard(name, card) else State.state(None)
+    }
 
-    def maybeEndTurn(b: Boolean): State[Game, _] = if (b) endTurn else State.state(None)
+    def maybeEndTurn(b: Boolean): State[Game, _] = {
+      if (b) endTurn else State.state(None)
+    }
 
-    def maybeDrawCard(b: Boolean, playerName: String): State[Game, _] = if (b) drawCard(playerName) else State.state(None)
+    def maybeDrawCard(b: Boolean, playerName: String): State[Game, _] = {
+      if (b) drawCard(playerName) else State.state(None)
+    }
 
-    getPlayer(playerName).flatMap(playerOption =>
-      playerOption.flatMap(p => {
-        //this is kind of cheating, but we can tell if the player is the current player by seeing if they have 2 cards in their hand
+    def performAction(player: Option[Player], discard: Card, targetName: Option[String], guess: Option[Card]): State[Game, TurnResult] = {
+      player.map(p => {
         if (p.hand.length != 2) {
-          Some(State.state(Left(Private("It is not your turn")))): Option[State[Game, Either[Message, Seq[Message]]]]
+          State.state[Game, TurnResult](PlayError("It is not your turn"))
         } else if (!p.hand.contains(discard)) {
-          Some(State.state(Left(Private("you do not have that card")))): Option[State[Game, Either[Message, Seq[Message]]]]
+          State.state[Game, TurnResult](PlayError("you do not have that card"))
         } else {
-          Some(for {
-            actionResult <- discard.doAction(p, targetName, guess)
-            _ <- maybeDiscard(actionResult.isRight, p.name, discard)
-            _ <- maybeEndTurn(actionResult.isRight)
+          for {
+            actionMessage <- discard.doAction(p, targetName, guess)
+            _ <- maybeDiscard(actionMessage.isRight, p.name, discard)
+            _ <- maybeEndTurn(actionMessage.isRight)
             matchWinner <- checkMatchOver(r)
             nextPlayer <- currentPlayer
             gameWinner <- findWinner
-            _ <- maybeDrawCard(actionResult.isRight && matchWinner.isEmpty, nextPlayer.name)
-          } yield actionResult.right.map(m => {
-            Seq[Option[Message]](Some(m),
-              matchWinner.map(p => s"${p.name} has won the match!"),
-              Some(s"It is ${nextPlayer.name}'s turn"),
-              gameWinner.map(p => s"${p.name} has won the game!")
-            ).flatten
-          })): Option[State[Game, Either[Message, Seq[Message]]]]
+            _ <- maybeDrawCard(actionMessage.isRight && matchWinner.isEmpty, nextPlayer.name)
+          } yield {
+            actionMessage match {
+              case Right(m) => {
+                if(gameWinner.isDefined) {
+                  val gameWinnerName = gameWinner.get.name
+                  // the match *should* have a winner, but just in case fall back to the game winner
+                  val matchWinnerName = matchWinner.map(_.name).getOrElse(gameWinnerName)
+                  GameOver(m, matchWinnerName, gameWinnerName)
+                } else if(matchWinner.isDefined) {
+                  MatchOver(m, matchWinner.get.name, nextPlayer.name)
+                } else {
+                  NextTurn(m, nextPlayer.name)
+                }
+              }
+              case Left(m) => PlayError(m.msg)
+            }
+          }: TurnResult
         }
-      }).getOrElse(State.state(Left(Private("Player not found or not in game")))))
+      }).getOrElse(State.state[Game, TurnResult](PlayError("Player not found or not in game")))
+    }
+
+    for {
+      playerOption <- getPlayer(playerName)
+      actionResult <- performAction(playerOption, discard, targetName, guess)
+    } yield actionResult
   }
 
   /**

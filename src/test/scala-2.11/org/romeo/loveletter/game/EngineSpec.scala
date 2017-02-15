@@ -1,7 +1,11 @@
 package org.romeo.loveletter.game
 
+import org.romeo.loveletter.game.Game.{GameOver, MatchOver, NextTurn, PlayError}
+
 import scala.language.postfixOps
 import org.scalatest._
+import org.scalatest.Inside._
+
 import scalaz.State
 
 class EngineSpec extends FlatSpec with Matchers {
@@ -778,8 +782,7 @@ class EngineSpec extends FlatSpec with Matchers {
 
     val winners = makeSomeoneWinnerThenTakeTurn.eval(game)
 
-    winners.isRight should be(true)
-    winners.right.get.map(_.msg) should contain(s"${players.head} has won the match!")
+    winners should matchPattern { case MatchOver(_, "Tyler", _) => }
   }
 
   it should "start a new match if there is a winner" in {
@@ -803,10 +806,13 @@ class EngineSpec extends FlatSpec with Matchers {
     } yield ()
 
     val newGame1 = makeSomeoneWinner.exec(game)
-    val newGame2 = (for {
+
+    def takeTurn = for {
       p <- Game.currentPlayer
       _ <- Game.processTurn(p.name, p.hand.head)(predictableRandomizer)
-    } yield ()).exec(newGame1)
+    } yield ()
+
+    val newGame2 = takeTurn.exec(newGame1)
 
     newGame1.deck should not be newGame2.deck
     newGame2.players.foreach(_.isEliminated should be(false))
@@ -839,9 +845,10 @@ class EngineSpec extends FlatSpec with Matchers {
 
     val winners = makeSomeoneWinnerThenTakeTurn.eval(game)
 
-    winners.isRight should be(true)
-    winners.right.get.last.msg should be(s"${players.head} has won the game!")
+    winners should matchPattern { case GameOver(_, "Tyler", "Tyler") => }
   }
+
+  //TODO: test that processturn will detect a match winner and a game winner
 
   behavior of "The guard card"
 
@@ -863,9 +870,9 @@ class EngineSpec extends FlatSpec with Matchers {
 
     val (newGame, (message, target)) = playGuardAndGuessRight(game)
 
-    message.isRight should be(true)
+    message should matchPattern { case NextTurn(_, _) => }
     target.isEliminated should be(true)
-    newGame should not be (game)
+    newGame should not be game
   }
 
   it should "not eliminate a player if their card is guessed incorrectly" in {
@@ -886,9 +893,9 @@ class EngineSpec extends FlatSpec with Matchers {
 
     val (newGame, (message, target)) = playGuardAndGuessWrong(game)
 
-    message.isRight should be(true)
+    message should matchPattern { case NextTurn(_, _) => }
     target.isEliminated should be(false)
-    newGame should not be (game)
+    newGame should not be game
   }
 
   it should "fail if guard is guessed" in {
@@ -909,7 +916,7 @@ class EngineSpec extends FlatSpec with Matchers {
 
     val (newGame, (message, currentPlayer)) = playGuardAndGuessGuard(game)
 
-    message.isLeft should be(true)
+    message should matchPattern { case PlayError(_) => }
     currentPlayer.name should be(players.head)
     newGame should be(game)
   }
@@ -932,7 +939,7 @@ class EngineSpec extends FlatSpec with Matchers {
 
     val (newGame, (message, currentPlayer)) = playGuardAndGuessBadplayer(game)
 
-    message.isLeft should be(true)
+    message should matchPattern { case PlayError(_) => }
     currentPlayer.name should be(players.head)
     newGame should be(game)
   }
@@ -956,7 +963,7 @@ class EngineSpec extends FlatSpec with Matchers {
 
     val (message, currentPlayer) = protectThenPlayGuard.eval(game)
 
-    message.isLeft should be(true)
+    message should matchPattern { case PlayError(_) => }
     currentPlayer.name should be(players.head)
   }
 
@@ -979,7 +986,7 @@ class EngineSpec extends FlatSpec with Matchers {
 
     val (message, currentPlayer) = protectThenPlayGuard.eval(game)
 
-    message.isLeft should be(true)
+    message should matchPattern { case PlayError(_) => }
     currentPlayer.name should be(players.head)
   }
 
@@ -1002,7 +1009,9 @@ class EngineSpec extends FlatSpec with Matchers {
     } yield (p, result)
 
     val (nextPlayer, result) = protectOrEliminateEveryoneThenPlay.eval(game)
-    result.isRight should be(true)
+    inside(result) { case NextTurn(_, p) =>
+      p should be("Kevin")
+    }
     nextPlayer.name should be(players(1))
 
   }
@@ -1018,11 +1027,11 @@ class EngineSpec extends FlatSpec with Matchers {
     val game = Game(players)
     val (game1, result1) = Game.processTurn(players.head, Guard, None, Some(Priest))(stackedDeckRandomizer).apply(game)
     game1 should be(game)
-    result1.isLeft should be(true)
+    result1 should matchPattern { case PlayError(_) => }
 
     val (game2, result2) = Game.processTurn(players.head, Guard, Some(players(2)), None)(stackedDeckRandomizer).apply(game)
     game2 should be(game)
-    result2.isLeft should be(true)
+    result2 should matchPattern { case PlayError(_) => }
   }
 
   it should "fail if the player targets themself" in {
@@ -1036,7 +1045,7 @@ class EngineSpec extends FlatSpec with Matchers {
     val game = Game.startMatch(Some(players.head))(stackedDeckRandomizer).exec(Game(players))
     val (newGame, result1) = Game.processTurn(players.head, Guard, Some(players.head), Some(Princess))(stackedDeckRandomizer).apply(game)
     newGame should be(game)
-    result1.isLeft should be(true)
+    result1 should matchPattern { case PlayError(_) => }
   }
 
   behavior of "The priest card"
@@ -1058,8 +1067,8 @@ class EngineSpec extends FlatSpec with Matchers {
 
     val message = peekAtPlayersCard.eval(game)
 
-    message.isRight should be(true)
-    message.right.get.head.msg.contains(Guard.name) should be(true)
+    message should matchPattern { case NextTurn(_,_) =>}
+    message.asInstanceOf[NextTurn].lastTurnResult.msg should include (Guard.name)
   }
 
   it should "fail if a player not in the game is targeted" in {
@@ -1080,7 +1089,7 @@ class EngineSpec extends FlatSpec with Matchers {
 
     val (newGame, (message, currentPlayer)) = playPriestOnBadplayer(game)
 
-    message.isLeft should be(true)
+    message should matchPattern { case PlayError(_) => }
     currentPlayer.name should be(players.head)
     newGame should be(game)
   }
@@ -1104,7 +1113,7 @@ class EngineSpec extends FlatSpec with Matchers {
 
     val (message, currentPlayer) = playPriestOnProtectedPlayer.eval(game)
 
-    message.isLeft should be(true)
+    message should matchPattern { case PlayError(_) => }
     currentPlayer.name should be(players.head)
   }
 
@@ -1127,7 +1136,7 @@ class EngineSpec extends FlatSpec with Matchers {
 
     val (message, currentPlayer) = playPriestOnEliminatedPlayer.eval(game)
 
-    message.isLeft should be(true)
+    message should matchPattern { case PlayError(_) => }
     currentPlayer.name should be(players.head)
   }
 
@@ -1150,7 +1159,9 @@ class EngineSpec extends FlatSpec with Matchers {
     } yield (p, result)
 
     val (nextPlayer, result) = protectOrEliminateEveryoneThenPlay.eval(game)
-    result.isRight should be(true)
+    inside(result) { case NextTurn(_, p) =>
+      p should be("Kevin")
+    }
     nextPlayer.name should be(players(1))
 
   }
@@ -1166,7 +1177,7 @@ class EngineSpec extends FlatSpec with Matchers {
     val game = Game(players)
     val (game1, result1) = Game.processTurn(players.head, Priest, None, None)(stackedDeckRandomizer).apply(game)
     game1 should be(game)
-    result1.isLeft should be(true)
+    result1 should matchPattern { case PlayError(_) => }
   }
 
   it should "fail if the player targets themself" in {
@@ -1180,7 +1191,7 @@ class EngineSpec extends FlatSpec with Matchers {
     val game = Game.startMatch(Some(players.head))(stackedDeckRandomizer).exec(Game(players))
     val (newGame, result1) = Game.processTurn(players.head, Priest, Some(players.head), None)(stackedDeckRandomizer).apply(game)
     newGame should be(game)
-    result1.isLeft should be(true)
+    result1 should matchPattern { case PlayError(_) => }
   }
 
   behavior of "The baron card"
@@ -1195,9 +1206,9 @@ class EngineSpec extends FlatSpec with Matchers {
     //player 1 will get a baron and a countess, player 2 a guard
     val game = Game.startMatch(Some(players.head))(stackedDeckRandomizer).exec(Game(players))
 
-    val (newGame, response) = Game.processTurn(players.head, Baron, Some(players(1)), None)(stackedDeckRandomizer).apply(game)
+    val (newGame, result) = Game.processTurn(players.head, Baron, Some(players(1)), None)(stackedDeckRandomizer).apply(game)
 
-    response.isRight should be(true)
+    result should matchPattern { case NextTurn(_, _) => }
     Game.getPlayer(players.head).eval(newGame).get.isEliminated should be(false)
     Game.getPlayer(players(1)).eval(newGame).get.isEliminated should be(true)
     Game.currentPlayer.eval(newGame).name should be(players(2))
@@ -1214,9 +1225,9 @@ class EngineSpec extends FlatSpec with Matchers {
     //player 1 will get a baron and a priest, player 2 a Prince
     val game = Game.startMatch(Some(players.head))(stackedDeckRandomizer).exec(Game(players))
 
-    val (newGame, response) = Game.processTurn(players.head, Baron, Some(players(1)), None)(stackedDeckRandomizer).apply(game)
+    val (newGame, result) = Game.processTurn(players.head, Baron, Some(players(1)), None)(stackedDeckRandomizer).apply(game)
 
-    response.isRight should be(true)
+    result should matchPattern { case NextTurn(_, _) => }
     Game.getPlayer(players.head).eval(newGame).get.isEliminated should be(true)
     Game.getPlayer(players(1)).eval(newGame).get.isEliminated should be(false)
     Game.currentPlayer.eval(newGame).name should be(players(1))
@@ -1233,9 +1244,9 @@ class EngineSpec extends FlatSpec with Matchers {
     //player 1 will get a baron and a handmaid, player 2 a handmaid
     val game = Game.startMatch(Some(players.head))(stackedDeckRandomizer).exec(Game(players))
 
-    val (newGame, response) = Game.processTurn(players.head, Baron, Some(players(1)), None)(stackedDeckRandomizer).apply(game)
+    val (newGame, result) = Game.processTurn(players.head, Baron, Some(players(1)), None)(stackedDeckRandomizer).apply(game)
 
-    response.isRight should be(true)
+    result should matchPattern { case NextTurn(_, _) => }
     Game.getPlayer(players.head).eval(newGame).get.isEliminated should be(false)
     Game.getPlayer(players(1)).eval(newGame).get.isEliminated should be(false)
     Game.currentPlayer.eval(newGame).name should be(players(1))
@@ -1260,7 +1271,7 @@ class EngineSpec extends FlatSpec with Matchers {
 
     val (newGame, (message, currentPlayer)) = playBaronOnBadPlayer(game)
 
-    message.isLeft should be(true)
+    message should matchPattern { case PlayError(_) => }
     currentPlayer.name should be(players.head)
     newGame should be(game)
   }
@@ -1284,7 +1295,7 @@ class EngineSpec extends FlatSpec with Matchers {
 
     val (message, currentPlayer) = playBaronOnProtectedPlayer.eval(game)
 
-    message.isLeft should be(true)
+    message should matchPattern { case PlayError(_) => }
     currentPlayer.name should be(players.head)
   }
 
@@ -1307,7 +1318,7 @@ class EngineSpec extends FlatSpec with Matchers {
 
     val (message, currentPlayer) = playBaronOnEliminatedPlayer.eval(game)
 
-    message.isLeft should be(true)
+    message should matchPattern { case PlayError(_) => }
     currentPlayer.name should be(players.head)
   }
 
@@ -1330,7 +1341,9 @@ class EngineSpec extends FlatSpec with Matchers {
     } yield (p, result)
 
     val (nextPlayer, result) = protectOrEliminateEveryoneThenPlay.eval(game)
-    result.isRight should be(true)
+    inside(result) { case NextTurn(_, p) =>
+      p should be("Kevin")
+    }
     nextPlayer.name should be(players(1))
 
   }
@@ -1346,7 +1359,7 @@ class EngineSpec extends FlatSpec with Matchers {
     val game = Game(players)
     val (game1, result1) = Game.processTurn(players.head, Baron, None, None)(stackedDeckRandomizer).apply(game)
     game1 should be(game)
-    result1.isLeft should be(true)
+    result1 should matchPattern { case PlayError(_) => }
   }
 
   it should "fail if the player targets themself" in {
@@ -1360,7 +1373,7 @@ class EngineSpec extends FlatSpec with Matchers {
     val game = Game.startMatch(Some(players.head))(stackedDeckRandomizer).exec(Game(players))
     val (newGame, result1) = Game.processTurn(players.head, Baron, Some(players.head), None)(stackedDeckRandomizer).apply(game)
     newGame should be(game)
-    result1.isLeft should be(true)
+    result1 should matchPattern { case PlayError(_) => }
   }
 
   behavior of "The handmaid card"
@@ -1383,7 +1396,7 @@ class EngineSpec extends FlatSpec with Matchers {
 
     val (protectedPlayer, message) = playHandmaid.eval(game)
 
-    message.isRight should be(true)
+    message should matchPattern { case NextTurn(_, _) => }
     protectedPlayer.isProtected should be(true)
 
   }
@@ -1408,7 +1421,9 @@ class EngineSpec extends FlatSpec with Matchers {
 
     val (newGame, (message, currentPlayer)) = playPrinceOnPlayer(game)
 
-    message.isRight should be(true)
+    inside(message) { case NextTurn(_, p) =>
+      p should be("Kevin")
+    }
     currentPlayer.name should be(players(1))
     newGame.discard should contain(Prince)
     newGame.discard should contain(Guard)
@@ -1423,8 +1438,7 @@ class EngineSpec extends FlatSpec with Matchers {
     val results = Game.processTurn("Tyler", Prince, Some("Kevin"), None)(basicRandomizer).eval(game)
 
     //because the burn card was a Princess, players(1) should have drawn it and won the last round
-    results.isRight should be(true)
-    results.right.get.map(_.msg) should contain("Kevin has won the match!")
+    results should matchPattern { case MatchOver(_, "Kevin", _) => }
   }
 
   it should "fail if the targeted player is protected" in {
@@ -1446,7 +1460,7 @@ class EngineSpec extends FlatSpec with Matchers {
 
     val (message, currentPlayer) = playPrinceOnProtectedPlayer.eval(game)
 
-    message.isLeft should be(true)
+    message should matchPattern { case PlayError(_) => }
     currentPlayer.name should be(players.head)
   }
 
@@ -1469,7 +1483,7 @@ class EngineSpec extends FlatSpec with Matchers {
 
     val (message, currentPlayer) = playPrinceOnEliminatedPlayer.eval(game)
 
-    message.isLeft should be(true)
+    message should matchPattern { case PlayError(_) => }
     currentPlayer.name should be(players.head)
   }
 
@@ -1494,8 +1508,10 @@ class EngineSpec extends FlatSpec with Matchers {
     } yield (p, result, result2, p2)
 
     val (newGame, (nextPlayer, result, result2, p2)) = protectOrEliminateEveryoneThenPlay(game)
-    result.isLeft should be(true)
-    result2.isRight should be(true)
+    result should matchPattern { case PlayError(_) => }
+    inside(result2) { case NextTurn(_, p) =>
+      p should be("Kevin")
+    }
     nextPlayer.name should be(players(1))
     p2.name should be(players.head)
     newGame.discard should contain only(Guard, Prince)
@@ -1520,7 +1536,7 @@ class EngineSpec extends FlatSpec with Matchers {
 
     val (newGame, (message, currentPlayer)) = playPrinceOnBadPlayer(game)
 
-    message.isLeft should be(true)
+    message should matchPattern { case PlayError(_) => }
     currentPlayer.name should be(players.head)
     newGame should be(game)
   }
@@ -1546,7 +1562,9 @@ class EngineSpec extends FlatSpec with Matchers {
 
     val (newGame, (message, kingPlayer, currentPlayer)) = playPrinceOnPlayer(game)
 
-    message.isRight should be(true)
+    inside(message) { case NextTurn(_, p) =>
+      p should be("Kevin")
+    }
     currentPlayer.name should be(players(1))
     currentPlayer.hand should contain(Handmaid)
     kingPlayer.hand should contain only Priest
@@ -1572,7 +1590,7 @@ class EngineSpec extends FlatSpec with Matchers {
 
     val (newGame, (message, currentPlayer)) = playKingOnProtectedPlayer(game)
 
-    message.isLeft should be(true)
+    message should matchPattern { case PlayError(_) => }
     currentPlayer.name should be(players.head)
   }
 
@@ -1595,7 +1613,7 @@ class EngineSpec extends FlatSpec with Matchers {
 
     val (message, currentPlayer) = playKingOnEliminatedPlayer.eval(game)
 
-    message.isLeft should be(true)
+    message should matchPattern { case PlayError(_) => }
     currentPlayer.name should be(players.head)
   }
 
@@ -1618,7 +1636,9 @@ class EngineSpec extends FlatSpec with Matchers {
     } yield (p, result)
 
     val (nextPlayer, result) = protectOrEliminateEveryoneThenPlay.eval(game)
-    result.isRight should be(true)
+    inside(result) { case NextTurn(_, p) =>
+      p should be("Kevin")
+    }
     nextPlayer.name should be(players(1))
 
   }
@@ -1641,7 +1661,7 @@ class EngineSpec extends FlatSpec with Matchers {
 
     val (newGame, (message, currentPlayer)) = playKingOnBadplayer(game)
 
-    message.isLeft should be(true)
+    message should matchPattern { case PlayError(_) => }
     currentPlayer.name should be(players.head)
     newGame should be(game)
   }
@@ -1657,7 +1677,7 @@ class EngineSpec extends FlatSpec with Matchers {
     val game = Game.startMatch(Some(players.head))(stackedDeckRandomizer).exec(Game(players))
     val (newGame, result1) = Game.processTurn(players.head, King, Some(players.head), None)(stackedDeckRandomizer).apply(game)
     newGame should be(game)
-    result1.isLeft should be(true)
+    result1 should matchPattern { case PlayError(_) => }
   }
 
   behavior of "The countess card"
@@ -1678,7 +1698,7 @@ class EngineSpec extends FlatSpec with Matchers {
     } yield (p, result)
 
     val (nextPlayer, result) = tryToDiscardPrince.eval(game)
-    result.isLeft should be(true)
+    result should matchPattern { case PlayError(_) => }
     nextPlayer.name should be(players.head)
 
   }
@@ -1699,7 +1719,7 @@ class EngineSpec extends FlatSpec with Matchers {
     } yield (p, result)
 
     val (nextPlayer, result) = tryToDiscardKing.eval(game)
-    result.isLeft should be(true)
+    result should matchPattern { case PlayError(_) => }
     nextPlayer.name should be(players.head)
 
   }
@@ -1720,7 +1740,9 @@ class EngineSpec extends FlatSpec with Matchers {
     } yield (p, result)
 
     val (nextPlayer, result) = discardCountess.eval(game)
-    result.isRight should be(true)
+    inside(result) { case NextTurn(_, p) =>
+      p should be("Kevin")
+    }
     nextPlayer.name should be(players(1))
 
   }
@@ -1744,7 +1766,9 @@ class EngineSpec extends FlatSpec with Matchers {
     } yield (p, princessPlayer.get, result)
 
     val (nextPlayer, princessPlayer, result) = discardPrincess.eval(game)
-    result.isRight should be(true)
+    inside(result) { case NextTurn(_, p) =>
+      p should be("Kevin")
+    }
     nextPlayer.name should be(players(1))
     princessPlayer.isEliminated should be(true)
   }
@@ -1766,7 +1790,7 @@ class EngineSpec extends FlatSpec with Matchers {
     } yield (p, eliminatedPlayer.get, result)
 
     val (nextPlayer, eliminatedPlayer, result) = forceDiscardOfPrincess.eval(game)
-    result.isRight should be(true)
+    result should matchPattern { case NextTurn(_, "Morgan") => }
     nextPlayer.name should be(players(2))
     eliminatedPlayer.isEliminated should be(true)
   }
@@ -1791,8 +1815,11 @@ class EngineSpec extends FlatSpec with Matchers {
     } yield (p, eliminatedPlayer.get, result)
 
     val (nextPlayer, eliminatedPlayer, result) = forceDiscardOfPrincess.eval(game)
-    result.isRight should be(true)
+    inside(result) { case NextTurn(_, p) =>
+      p should be("Kevin")
+    }
     nextPlayer.name should be(players(1))
     eliminatedPlayer.isEliminated should be(true)
   }
 }
+

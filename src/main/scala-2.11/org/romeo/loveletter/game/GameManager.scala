@@ -37,7 +37,31 @@ class GameManager(val datastore: Datastore[Game], rand: Random) {
       datastore.get(gameId).map(game => {
         val (newGame, result) = Game.processTurn(player, card, targetPlayer, cardGuess.flatMap(Deck.getCardByName)).apply(game)
         datastore.put(gameId, newGame)
-        result
+        result match {
+          case PlayError(message) => {
+            Left(Private(message))
+          }
+          case GameOver(lastTurnResult, matchWinner, gameWinner) => {
+            Right(Seq[Message](
+              lastTurnResult,
+              Public(s"!!! $matchWinner has won the match and gets a point !!!"),
+              Public(s"!!!!!! $gameWinner has won the game !!!!!!")
+            ))
+          }
+          case MatchOver(lastTurnResult, matchWinner, nextPlayer) => {
+            Right(Seq[Message](
+              lastTurnResult,
+              Public(s"!!! $matchWinner has won the match and gets a point !!!"),
+              Public(s"!!!!!! A new game has started, it is $nextPlayer's turn !!!!!!")
+            ))
+          }
+          case NextTurn(lastTurnResult, nextPlayer) => {
+            Right(Seq[Message](
+              lastTurnResult,
+              Public(s"It is $nextPlayer's turn")
+            ))
+          }
+        }
       }).getOrElse(Left(Private("Game not found")))
     ).getOrElse(Left(Private(s"$cardName doesn't exist in the game")))
   }

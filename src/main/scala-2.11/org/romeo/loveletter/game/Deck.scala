@@ -273,7 +273,7 @@ case object Jester extends Card {
   val requiresTarget: Boolean = false
   val requiresGuess: Boolean = false
 
-  override def doAction(discarder: Player, targetName: Option[String] = None, guess: Option[Card] = None): State[Game, Either[Message, Message]] = ???
+  override def doAction(discarder: Player, targetName: Option[String] = None, guess: Option[Card] = None): State[Game, Either[String, Message]] = ???
 }
 
 case object Assassin extends Card {
@@ -283,7 +283,7 @@ case object Assassin extends Card {
   val requiresTarget: Boolean = false
   val requiresGuess: Boolean = false
 
-  override def doAction(discarder: Player, targetName: Option[String] = None, guess: Option[Card] = None): State[Game, Either[Message, Message]] = ???
+  override def doAction(discarder: Player, targetName: Option[String] = None, guess: Option[Card] = None): State[Game, Either[String, Message]] = ???
 }
 
 case object Cardinal extends Card {
@@ -293,7 +293,7 @@ case object Cardinal extends Card {
   val requiresTarget: Boolean = false
   val requiresGuess: Boolean = false
 
-  override def doAction(discarder: Player, targetName: Option[String] = None, guess: Option[Card] = None): State[Game, Either[Message, Message]] = ???
+  override def doAction(discarder: Player, targetName: Option[String] = None, guess: Option[Card] = None): State[Game, Either[String, Message]] = ???
 }
 
 case object Baroness extends Card {
@@ -303,7 +303,7 @@ case object Baroness extends Card {
   val requiresTarget: Boolean = false
   val requiresGuess: Boolean = false
 
-  override def doAction(discarder: Player, targetName: Option[String] = None, guess: Option[Card] = None): State[Game, Either[Message, Message]] = ???
+  override def doAction(discarder: Player, targetName: Option[String] = None, guess: Option[Card] = None): State[Game, Either[String, Message]] = ???
 }
 
 case object Sycophant extends Card {
@@ -313,7 +313,7 @@ case object Sycophant extends Card {
   val requiresTarget: Boolean = false
   val requiresGuess: Boolean = false
 
-  override def doAction(discarder: Player, targetName: Option[String] = None, guess: Option[Card] = None): State[Game, Either[Message, Message]] = ???
+  override def doAction(discarder: Player, targetName: Option[String] = None, guess: Option[Card] = None): State[Game, Either[String, Message]] = ???
 }
 
 case object Count extends Card {
@@ -323,7 +323,7 @@ case object Count extends Card {
   val requiresTarget: Boolean = false
   val requiresGuess: Boolean = false
 
-  override def doAction(discarder: Player, targetName: Option[String] = None, guess: Option[Card] = None): State[Game, Either[Message, Message]] = ???
+  override def doAction(discarder: Player, targetName: Option[String] = None, guess: Option[Card] = None): State[Game, Either[String, Message]] = ???
 }
 
 case object Constable extends Card {
@@ -333,7 +333,7 @@ case object Constable extends Card {
   val requiresTarget: Boolean = false
   val requiresGuess: Boolean = false
 
-  override def doAction(discarder: Player, targetName: Option[String] = None, guess: Option[Card] = None): State[Game, Either[Message, Message]] = ???
+  override def doAction(discarder: Player, targetName: Option[String] = None, guess: Option[Card] = None): State[Game, Either[String, Message]] = ???
 }
 
 case object DowagerQueen extends Card {
@@ -343,7 +343,7 @@ case object DowagerQueen extends Card {
   val requiresTarget: Boolean = false
   val requiresGuess: Boolean = false
 
-  override def doAction(discarder: Player, targetName: Option[String] = None, guess: Option[Card] = None): State[Game, Either[Message, Message]] = ???
+  override def doAction(discarder: Player, targetName: Option[String] = None, guess: Option[Card] = None): State[Game, Either[String, Message]] = ???
 }
 
 case object Bishop extends Card {
@@ -353,5 +353,5 @@ case object Bishop extends Card {
   val requiresTarget: Boolean = false
   val requiresGuess: Boolean = false
 
-  override def doAction(discarder: Player, targetName: Option[String] = None, guess: Option[Card] = None): State[Game, Either[Message, Message]] = ???
+  override def doAction(discarder: Player, targetName: Option[String] = None, guess: Option[Card] = None): State[Game, Either[String, Message]] = ???
 }

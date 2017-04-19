@@ -1821,5 +1821,83 @@ class EngineSpec extends FlatSpec with Matchers {
     nextPlayer.name should be(players(1))
     eliminatedPlayer.isEliminated should be(true)
   }
+
+  behavior of "the assassin card"
+
+  it should "do nothing when discarded" in {
+    val players = Seq("Tyler", "Kevin", "Morgan")
+    // use this randomizer for tests that need specific card
+    val stackedDeckRandomizer = Randomizer(
+      shuffleDeck = (s: Seq[Card]) => Seq(Guard, Assassin, Guard) ++ s,
+      choosePlayer = (s: Seq[Player]) => s.head
+    )
+    //player 1 will get an assassin, player 2 will get a guard
+    val game = Game.startMatch(Some(players.head))(stackedDeckRandomizer).exec(Game(players))
+
+    def discardAssassin = for {
+      result <- Game.processTurn(players.head, Assassin)(stackedDeckRandomizer)
+    } yield result
+
+    val (newGame, result) = discardAssassin(game)
+    result should matchPattern { case NextTurn(_, _) => }
+    newGame.players.map(p => (p.isEliminated, p.isProtected, p.score)) should contain theSameElementsAs game.players.map(p => (p.isEliminated, p.isProtected, p.score))
+  }
+
+  it should "eliminate a player who uses a guard on a player with this card" in {
+    val players = Seq("Tyler", "Kevin", "Morgan")
+    // use this randomizer for tests that need specific card
+    val stackedDeckRandomizer = Randomizer(
+      shuffleDeck = (s: Seq[Card]) => Seq(Guard, Guard, Assassin) ++ s,
+      choosePlayer = (s: Seq[Player]) => s.head
+    )
+    //player 1 will get an guard, player 2 will get a assassin
+    val game = Game.startMatch(Some(players.head))(stackedDeckRandomizer).exec(Game(players))
+
+    def playGuard = for {
+      result <- Game.processTurn(players.head, Guard, Some("Kevin"), Some(Prince))(stackedDeckRandomizer)
+    } yield result
+
+    val (newGame, result) = playGuard(game)
+    result should matchPattern { case NextTurn(_, _) => }
+    game.players.find(_.name == "Tyler").get.isEliminated shouldBe true
+  }
+
+  it should "not eliminate the player with this card even if the guard guesses right" in {
+    val players = Seq("Tyler", "Kevin", "Morgan")
+    // use this randomizer for tests that need specific card
+    val stackedDeckRandomizer = Randomizer(
+      shuffleDeck = (s: Seq[Card]) => Seq(Guard, Guard, Assassin) ++ s,
+      choosePlayer = (s: Seq[Player]) => s.head
+    )
+    //player 1 will get an guard, player 2 will get a assassin
+    val game = Game.startMatch(Some(players.head))(stackedDeckRandomizer).exec(Game(players))
+
+    def playGuard = for {
+      result <- Game.processTurn(players.head, Guard, Some("Kevin"), Some(Assassin))(stackedDeckRandomizer)
+    } yield result
+
+    val (newGame, result) = playGuard(game)
+    result should matchPattern { case NextTurn(_, _) => }
+    game.players.find(_.name == "Kevin").get.isEliminated shouldBe false
+  }
+
+  it should "be discarded if a guard is played on a player with this card" in {
+    val players = Seq("Tyler", "Kevin", "Morgan")
+    // use this randomizer for tests that need specific card
+    val stackedDeckRandomizer = Randomizer(
+      shuffleDeck = (s: Seq[Card]) => Seq(Guard, Guard, Assassin, Guard, Priest, Princess) ++ s,
+      choosePlayer = (s: Seq[Player]) => s.head
+    )
+    //player 1 will get an guard and a priest, player 2 will get a assassin. The next card in the draw pile will be a Princess
+    val game = Game.startMatch(Some(players.head))(stackedDeckRandomizer).exec(Game(players))
+
+    def playGuard = for {
+      result <- Game.processTurn(players.head, Guard, Some("Kevin"), Some(Assassin))(stackedDeckRandomizer)
+    } yield result
+
+    val (newGame, result) = playGuard(game)
+    result should matchPattern { case NextTurn(_, _) => }
+    game.players.find(_.name == "Kevin").get.hand.head should be(Princess)
+  }
 }
 

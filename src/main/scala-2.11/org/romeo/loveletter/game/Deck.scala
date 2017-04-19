@@ -59,7 +59,14 @@ case object Guard extends Card {
     } else {
       Game.getPlayer(targetName.get).flatMap(pOption => {
         pOption.map(p =>
-          if (p.isProtected) {
+          if (p.hand.contains(Assassin)) {
+            def assassinHit = for {
+              _ <- Game.eliminatePlayer(discarder.name, isEliminated = true)
+              _ <- Game.playerDiscard(p.name, Assassin)
+              _ <- Game.drawFromDeckOrBurnCard(p.name)
+            } yield ()
+            assassinHit.map(_ => Right(s"${p.name} has an Assassin! You are eliminated. ${p.name} draws a new card."): Either[String, Message])
+          } else if (p.isProtected) {
             State.state[Game, Either[String, Message]](Left(s"${p.name} is protected"))
           } else if (p.isEliminated) {
             State.state[Game, Either[String, Message]](Left(s"${p.name} isn't in the match"))
@@ -283,7 +290,9 @@ case object Assassin extends Card {
   val requiresTarget: Boolean = false
   val requiresGuess: Boolean = false
 
-  override def doAction(discarder: Player, targetName: Option[String] = None, guess: Option[Card] = None): State[Game, Either[String, Message]] = ???
+  override def doAction(discarder: Player, targetName: Option[String] = None, guess: Option[Card] = None): State[Game, Either[String, Message]] = {
+    State.state(Right("You discarded the Assassin"))
+  }
 }
 
 case object Cardinal extends Card {

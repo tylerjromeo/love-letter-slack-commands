@@ -1859,7 +1859,7 @@ class EngineSpec extends FlatSpec with Matchers {
 
     val (newGame, result) = playGuard(game)
     result should matchPattern { case NextTurn(_, _) => }
-    game.players.find(_.name == "Tyler").get.isEliminated shouldBe true
+    newGame.players.find(_.name == "Tyler").get.isEliminated shouldBe true
   }
 
   it should "not eliminate the player with this card even if the guard guesses right" in {
@@ -1878,7 +1878,7 @@ class EngineSpec extends FlatSpec with Matchers {
 
     val (newGame, result) = playGuard(game)
     result should matchPattern { case NextTurn(_, _) => }
-    game.players.find(_.name == "Kevin").get.isEliminated shouldBe false
+    newGame.players.find(_.name == "Kevin").get.isEliminated shouldBe false
   }
 
   it should "be discarded if a guard is played on a player with this card" in {
@@ -1897,7 +1897,7 @@ class EngineSpec extends FlatSpec with Matchers {
 
     val (newGame, result) = playGuard(game)
     result should matchPattern { case NextTurn(_, _) => }
-    game.players.find(_.name == "Kevin").get.hand.head should be(Princess)
+    newGame.players.find(_.name == "Kevin").get.hand.head should be(Princess)
   }
 }
 

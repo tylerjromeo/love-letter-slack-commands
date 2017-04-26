@@ -1,11 +1,10 @@
 package org.romeo.loveletter.game
 
 import org.romeo.loveletter.game.Game.{GameOver, MatchOver, NextTurn, PlayError}
+import org.scalatest.Inside._
+import org.scalatest._
 
 import scala.language.postfixOps
-import org.scalatest._
-import org.scalatest.Inside._
-
 import scalaz.State
 
 class EngineSpec extends FlatSpec with Matchers {
@@ -1067,8 +1066,8 @@ class EngineSpec extends FlatSpec with Matchers {
 
     val message = peekAtPlayersCard.eval(game)
 
-    message should matchPattern { case NextTurn(_,_) =>}
-    message.asInstanceOf[NextTurn].lastTurnResult.msg should include (Guard.name)
+    message should matchPattern { case NextTurn(_, _) => }
+    message.asInstanceOf[NextTurn].lastTurnResult.msg should include(Guard.name)
   }
 
   it should "fail if a player not in the game is targeted" in {
@@ -1898,6 +1897,188 @@ class EngineSpec extends FlatSpec with Matchers {
     val (newGame, result) = playGuard(game)
     result should matchPattern { case NextTurn(_, _) => }
     newGame.players.find(_.name == "Kevin").get.hand.head should be(Princess)
+  }
+
+  behavior of "The dowager queen card"
+
+  it should "eliminate the target player if your card is lower than theirs" in {
+    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    // use this randomizer for tests that need specific card
+    val stackedDeckRandomizer = Randomizer(
+      shuffleDeck = (s: Seq[Card]) => Seq(Guard, DowagerQueen, Prince, Princess, Handmaid, Priest) ++ s,
+      choosePlayer = (s: Seq[Player]) => s.head
+    )
+    //player 1 will get a dowager queen and a priest, player 2 a Prince
+    val game = Game.startMatch(Some(players.head))(stackedDeckRandomizer).exec(Game(players))
+
+    val (newGame, result) = Game.processTurn(players.head, DowagerQueen, Some(players(1)), None)(stackedDeckRandomizer).apply(game)
+
+    result should matchPattern { case NextTurn(_, _) => }
+    Game.getPlayer(players.head).eval(newGame).get.isEliminated should be(false)
+    Game.getPlayer(players(1)).eval(newGame).get.isEliminated should be(true)
+    Game.currentPlayer.eval(newGame).name should be(players(2))
+
+  }
+
+  it should "eliminate you if the target players card is lower than yours" in {
+    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    // use this randomizer for tests that need specific card
+    val stackedDeckRandomizer = Randomizer(
+      shuffleDeck = (s: Seq[Card]) => Seq(Guard, DowagerQueen, Guard, Princess, Handmaid, Countess) ++ s,
+      choosePlayer = (s: Seq[Player]) => s.head
+    )
+    //player 1 will get a dowager queen and a countess, player 2 a guard
+    val game = Game.startMatch(Some(players.head))(stackedDeckRandomizer).exec(Game(players))
+
+    val (newGame, result) = Game.processTurn(players.head, DowagerQueen, Some(players(1)), None)(stackedDeckRandomizer).apply(game)
+
+    result should matchPattern { case NextTurn(_, _) => }
+    Game.getPlayer(players.head).eval(newGame).get.isEliminated should be(true)
+    Game.getPlayer(players(1)).eval(newGame).get.isEliminated should be(false)
+    Game.currentPlayer.eval(newGame).name should be(players(1))
+
+  }
+
+  it should "eliminate nobody if you have the same card" in {
+    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    // use this randomizer for tests that need specific card
+    val stackedDeckRandomizer = Randomizer(
+      shuffleDeck = (s: Seq[Card]) => Seq(Guard, DowagerQueen, Handmaid, Princess, Handmaid, Handmaid) ++ s,
+      choosePlayer = (s: Seq[Player]) => s.head
+    )
+    //player 1 will get a dowager queen and a handmaid, player 2 a handmaid
+    val game = Game.startMatch(Some(players.head))(stackedDeckRandomizer).exec(Game(players))
+
+    val (newGame, result) = Game.processTurn(players.head, DowagerQueen, Some(players(1)), None)(stackedDeckRandomizer).apply(game)
+
+    result should matchPattern { case NextTurn(_, _) => }
+    Game.getPlayer(players.head).eval(newGame).get.isEliminated should be(false)
+    Game.getPlayer(players(1)).eval(newGame).get.isEliminated should be(false)
+    Game.currentPlayer.eval(newGame).name should be(players(1))
+
+  }
+
+  it should "fail if a player not in the game is targeted" in {
+    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    // use this randomizer for tests that need specific card
+    val stackedDeckRandomizer = Randomizer(
+      shuffleDeck = (s: Seq[Card]) => Seq(Guard, DowagerQueen, Guard, Princess, Handmaid, Prince) ++ s,
+      choosePlayer = (s: Seq[Player]) => s.head
+    )
+    //player 1 will get a dowager queen and a prince, player 2 a guard
+    val game = Game.startMatch(Some(players.head))(stackedDeckRandomizer).exec(Game(players))
+
+    def playDowagerQueenOnBadPlayer = for {
+      p <- Game.currentPlayer
+      result <- Game.processTurn(p.name, DowagerQueen, Some("BADPLAYER"), None)(stackedDeckRandomizer)
+      currentPlayer <- Game.currentPlayer
+    } yield (result, currentPlayer)
+
+    val (newGame, (message, currentPlayer)) = playDowagerQueenOnBadPlayer(game)
+
+    message should matchPattern { case PlayError(_) => }
+    currentPlayer.name should be(players.head)
+    newGame should be(game)
+  }
+
+  it should "fail if the targeted player is protected" in {
+    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    // use this randomizer for tests that need specific card
+    val stackedDeckRandomizer = Randomizer(
+      shuffleDeck = (s: Seq[Card]) => Seq(Guard, DowagerQueen, Guard, Princess, Handmaid, Prince) ++ s,
+      choosePlayer = (s: Seq[Player]) => s.head
+    )
+    //player 1 will get a dowagerQueen and a prince, player 2 a guard
+    val game = Game.startMatch(Some(players.head))(stackedDeckRandomizer).exec(Game(players))
+
+    def playDowagerQueenOnProtectedPlayer = for {
+      _ <- Game.protectPlayer(players(1), isProtected = true)
+      p <- Game.currentPlayer
+      result <- Game.processTurn(p.name, DowagerQueen, Some(players(1)), None)(stackedDeckRandomizer)
+      currentPlayer <- Game.currentPlayer
+    } yield (result, currentPlayer)
+
+    val (message, currentPlayer) = playDowagerQueenOnProtectedPlayer.eval(game)
+
+    message should matchPattern { case PlayError(_) => }
+    currentPlayer.name should be(players.head)
+  }
+
+  it should "fail if the targeted player is eliminated" in {
+    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    // use this randomizer for tests that need specific card
+    val stackedDeckRandomizer = Randomizer(
+      shuffleDeck = (s: Seq[Card]) => Seq(Guard, DowagerQueen, Guard, Princess, Handmaid, Prince) ++ s,
+      choosePlayer = (s: Seq[Player]) => s.head
+    )
+    //player 1 will get a dowager queen and a prince, player 2 a guard
+    val game = Game.startMatch(Some(players.head))(stackedDeckRandomizer).exec(Game(players))
+
+    def playDowagerQueenOnEliminatedPlayer = for {
+      _ <- Game.eliminatePlayer(players(1), isEliminated = true)
+      p <- Game.currentPlayer
+      result <- Game.processTurn(p.name, DowagerQueen, Some(players(1)), None)(stackedDeckRandomizer)
+      currentPlayer <- Game.currentPlayer
+    } yield (result, currentPlayer)
+
+    val (message, currentPlayer) = playDowagerQueenOnEliminatedPlayer.eval(game)
+
+    message should matchPattern { case PlayError(_) => }
+    currentPlayer.name should be(players.head)
+  }
+
+  it should "allow the player to play with no effect if every other player is eliminated or protected" in {
+    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    // use this randomizer for tests that need specific card
+    val stackedDeckRandomizer = Randomizer(
+      shuffleDeck = (s: Seq[Card]) => Seq(Guard, DowagerQueen, Guard, Princess, Handmaid, Prince) ++ s,
+      choosePlayer = (s: Seq[Player]) => s.head
+    )
+    //player 1 will get a dowager queen and a prince, player 2 a guard
+    val game = Game.startMatch(Some(players.head))(stackedDeckRandomizer).exec(Game(players))
+
+    def protectOrEliminateEveryoneThenPlay = for {
+      _ <- Game.protectPlayer(players(1), isProtected = true)
+      _ <- Game.eliminatePlayer(players(2), isEliminated = true)
+      _ <- Game.protectPlayer(players(3), isProtected = true)
+      result <- Game.processTurn(players.head, DowagerQueen, None, None)(stackedDeckRandomizer)
+      p <- Game.currentPlayer
+    } yield (p, result)
+
+    val (nextPlayer, result) = protectOrEliminateEveryoneThenPlay.eval(game)
+    inside(result) { case NextTurn(_, p) =>
+      p should be("Kevin")
+    }
+    nextPlayer.name should be(players(1))
+
+  }
+
+  it should "fail if a target is not supplied" in {
+    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    // use this randomizer for tests that need specific card
+    val stackedDeckRandomizer = Randomizer(
+      shuffleDeck = (s: Seq[Card]) => Seq(Guard, DowagerQueen, Guard, Princess, Handmaid, Prince) ++ s,
+      choosePlayer = (s: Seq[Player]) => s.head
+    )
+    //player 1 will get a dowager queen and a prince, player 2 a guard
+    val game = Game(players)
+    val (game1, result1) = Game.processTurn(players.head, DowagerQueen, None, None)(stackedDeckRandomizer).apply(game)
+    game1 should be(game)
+    result1 should matchPattern { case PlayError(_) => }
+  }
+
+  it should "fail if the player targets themself" in {
+    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    // use this randomizer for tests that need specific card
+    val stackedDeckRandomizer = Randomizer(
+      shuffleDeck = (s: Seq[Card]) => Seq(Guard, DowagerQueen) ++ s,
+      choosePlayer = (s: Seq[Player]) => s.head
+    )
+    //player 1 will get a dowager queen
+    val game = Game.startMatch(Some(players.head))(stackedDeckRandomizer).exec(Game(players))
+    val (newGame, result1) = Game.processTurn(players.head, DowagerQueen, Some(players.head), None)(stackedDeckRandomizer).apply(game)
+    newGame should be(game)
+    result1 should matchPattern { case PlayError(_) => }
   }
 }
 

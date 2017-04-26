@@ -276,7 +276,7 @@ case object Princess extends Card {
 case object Jester extends Card {
   val value = 0
   val name = "Jester"
-  val description = "If the chose player wins the round, gain an Affection Token."
+  val description = "If the chosen player wins the round, gain an Affection Token."
   val requiresTarget: Boolean = false
   val requiresGuess: Boolean = false
 
@@ -352,7 +352,37 @@ case object DowagerQueen extends Card {
   val requiresTarget: Boolean = false
   val requiresGuess: Boolean = false
 
-  override def doAction(discarder: Player, targetName: Option[String] = None, guess: Option[Card] = None): State[Game, Either[String, Message]] = ???
+  override def doAction(discarder: Player, targetName: Option[String] = None, guess: Option[Card] = None): State[Game, Either[String, Message]] = {
+    if (targetName.isEmpty) {
+      return Game.isEveryoneElseProtectedOrEliminated.map(if (_) {
+        Right(s"Everyone is safe, $name discarded with no effect")
+      } else {
+        Left(s"A target must be specified")
+      })
+    }
+    Game.getPlayer(targetName.get).flatMap(pOption => {
+      pOption.map(p => {
+        if (p.isProtected) {
+          State.state[Game, Either[String, Message]](Left(s"${p.name} is protected"))
+        } else if (p.isEliminated) {
+          State.state[Game, Either[String, Message]](Left(s"${p.name} isn't in the match"))
+        } else if (p.name == discarder.name) {
+          State.state[Game, Either[String, Message]](Left(s"You can't target yourself with Baron"))
+        } else {
+          val playerCard = discarder.hand.diff(Seq(DowagerQueen)).head
+          //discard hasn't been processed yet, so remove the dowager queen for the comparison
+          val targetCard = p.hand.head
+          if (targetCard.value < playerCard.value) {
+            Game.eliminatePlayer(discarder.name, isEliminated = true).map(_ => Right(s"${discarder.name} has been eliminated and discards a ${playerCard.name}"): Either[String, Message])
+          } else if (targetCard.value > playerCard.value) {
+            Game.eliminatePlayer(p.name, isEliminated = true).map(_ => Right(s"${p.name} has been eliminated and discards a ${targetCard.name}"): Either[String, Message])
+          } else {
+            State.state[Game, Either[String, Message]](Right("It is a tie. No one is eliminated"))
+          }
+        }
+      }).getOrElse(State.state[Game, Either[String, Message]](Left(s"${targetName.get} isn't in the game!")))
+    })
+  }
 }
 
 case object Bishop extends Card {

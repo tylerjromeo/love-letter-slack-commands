@@ -1,7 +1,8 @@
 package org.romeo.loveletter.game
 
+import org.romeo.loveletter.game.Game._
+
 import scalaz.State
-import Game._
 
 object Deck {
   val cards: Seq[Card] = Seq.fill(5)(Guard) ++
@@ -65,6 +66,7 @@ case object Guard extends Card {
               _ <- Game.playerDiscard(p.name, Assassin)
               _ <- Game.drawFromDeckOrBurnCard(p.name)
             } yield ()
+
             assassinHit.map(_ => Right(s"${p.name} has an Assassin! You are eliminated. ${p.name} draws a new card."): Either[String, Message])
           } else if (p.isProtected) {
             State.state[Game, Either[String, Message]](Left(s"${p.name} is protected"))
@@ -105,7 +107,7 @@ case object Priest extends Card {
         } else if (p.isEliminated) {
           State.state[Game, Either[String, Message]](Left(s"${p.name} isn't in the match"))
         } else if (p.name == discarder.name) {
-          State.state[Game, Either[String, Message]](Left(s"You can't target yourself with Priest"))
+          State.state[Game, Either[String, Message]](Left(s"You can't target yourself with $name"))
         } else {
           State.state[Game, Either[String, Message]](Right(Private(s"${p.name} has a ${p.hand.head}")))
         }
@@ -136,7 +138,7 @@ case object Baron extends Card {
         } else if (p.isEliminated) {
           State.state[Game, Either[String, Message]](Left(s"${p.name} isn't in the match"))
         } else if (p.name == discarder.name) {
-          State.state[Game, Either[String, Message]](Left(s"You can't target yourself with Baron"))
+          State.state[Game, Either[String, Message]](Left(s"You can't target yourself with $name"))
         } else {
           val playerCard = discarder.hand.diff(Seq(Baron)).head
           //discard hasn't been processed yet, so remove the baron for the comparison
@@ -277,10 +279,34 @@ case object Jester extends Card {
   val value = 0
   val name = "Jester"
   val description = "If the chosen player wins the round, gain an Affection Token."
-  val requiresTarget: Boolean = false
+  val requiresTarget: Boolean = true
   val requiresGuess: Boolean = false
 
-  override def doAction(discarder: Player, targetName: Option[String] = None, guess: Option[Card] = None): State[Game, Either[String, Message]] = ???
+  override def doAction(discarder: Player, targetName: Option[String], guess: Option[Card] = None): State[Game, Either[String, Message]] = {
+    if (targetName.isEmpty) {
+      return Game.isEveryoneElseProtectedOrEliminated.map(if (_) {
+        Right(s"Everyone is safe, $name discarded with no effect")
+      } else {
+        Left(s"A target must be specified")
+      })
+    }
+    Game.getPlayer(targetName.get).flatMap(pOption => {
+      pOption.map(p =>
+        if (p.isProtected) {
+          State.state[Game, Either[String, Message]](Left(s"${p.name} is protected"))
+        } else if (p.isEliminated) {
+          State.state[Game, Either[String, Message]](Left(s"${p.name} isn't in the match"))
+        } else if (p.name == discarder.name) {
+          State.state[Game, Either[String, Message]](Left(s"You can't target yourself with $name"))
+        } else {
+          Game.addJesterTarget(discarder.name, p.name).map {
+            case Some(pp) => Right[String, Message](s"${pp.name} has targeted ${p.name} with a $name!")
+            case None => Left[String, Message](s"${p.name} isn't in the match")
+          }: State[Game, Either[String, Message]]
+        }
+      ).getOrElse(State.state[Game, Either[String, Message]](Left(s"${targetName.get} isn't in the game!")))
+    })
+  }
 }
 
 case object Assassin extends Card {

@@ -2,14 +2,14 @@ package org.romeo.loveletter.game
 
 import scala.collection.immutable.List
 import scala.language.implicitConversions
-import scalaz.State
+import scalaz.{Applicative, State}
 
 case class Player(
                    name: String, //name must be unique among players in the game
                    hand: Seq[Card] = Nil,
                    isEliminated: Boolean = false,
                    isProtected: Boolean = false,
-                 jesterTarget: Option[String] = None, //if the player has player jester on someone, that player's name will be here
+                   jesterTarget: Option[String] = None, //if the player has player jester on someone, that player's name will be here
                    score: Int = 0) {
   override def toString: String = s"$name, cards:(${hand.map(_.name).mkString(", ")}), isEliminated:$isEliminated, isProtected:$isProtected, score:$score"
 }
@@ -274,7 +274,13 @@ object Game {
   /**
     * sets a jester target for a player and return the new player. If the player or target is not in the game returns None
     */
-  def addJesterTarget(playerName: String, targetName: String): State[Game, Option[Player]] = ???
+  def addJesterTarget(playerName: String, targetName: String): State[Game, Option[Player]] = {
+    for {
+      p <- getPlayer(playerName)
+      t <- getPlayer(targetName)
+      p2 <- updatePlayer(p.map(_.copy(jesterTarget = t.map(_.name))))
+    } yield t.flatMap(_ => p2) //None if the target wasn't found, and p2 is it was
+  }
 
   /**
     * sets the player's "eliminated" value to true or false. returns the new player, or None if player doesn't exist
@@ -314,11 +320,30 @@ object Game {
     winner <- findMatchWinner
     points <- winner.map { w =>
       for {
-        ww <- awardPoint(w.name)
+        winner <- awardPoint(w.name)
+        extraPoints <- awardJesterPoints(w.name)
         _ <- startMatch(Some(w.name))
-      } yield ww.toList
+      } yield winner.toList ++ extraPoints
     }.getOrElse(State.state(List[Player]()))
   } yield points
+
+  def awardJesterPoints(matchWinner: String): State[Game, List[Player]] = {
+    awardPointsIf(_.jesterTarget.contains(matchWinner))
+  }
+
+  def awardPointsIf(pred: Player => Boolean): State[Game, List[Player]] = {
+    import scalaz.std.list.listInstance
+    type PlayerList = Seq[Player]
+    val applicative = Applicative[({type l[PlayerList] = State[Game, PlayerList]})#l]
+    for {
+      ps <- getPlayers
+      playersWithPoints <- applicative.sequence(ps.filter(pred).map(p => awardPoint(p.name)).toList)
+    } yield playersWithPoints.flatten
+  }
+
+  def getPlayers = State[Game, Seq[Player]] { g: Game =>
+    (g, g.players)
+  }
 
   trait TurnResult
 

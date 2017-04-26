@@ -240,7 +240,7 @@ class EngineSpec extends FlatSpec with Matchers {
 
     val (winner, firstPlayer) = eliminateEveryoneElseThenStartNewMatch.eval(game)
 
-    firstPlayer.name should be(winner.get.name)
+    firstPlayer.name should be(winner.head.name)
   }
 
   it should "have the last remaining player be detected as the winner" in {
@@ -256,7 +256,7 @@ class EngineSpec extends FlatSpec with Matchers {
     } yield winner
 
     val winner = eliminateEveryoneElse.eval(game)
-    winner.get.name should be(players(3))
+    winner.head.name should be(players(3))
   }
 
   it should "if the deck is empty, have the non eliminated player with the highest card be detected as the winner" in {
@@ -288,7 +288,7 @@ class EngineSpec extends FlatSpec with Matchers {
     val (newGame, winner) = playTheGame(game)
 
     winner should not be empty
-    winner.get.name should be(players(2))
+    winner.head.name should be(players(2))
     Game.getPlayer(players(2)).eval(newGame).map(_.score).getOrElse(2) should be(1)
   }
 
@@ -320,7 +320,7 @@ class EngineSpec extends FlatSpec with Matchers {
     val (newGame, winner) = playTheGame(game)
 
     winner should not be empty
-    winner.get.name should be(players.head)
+    winner.head.name should be(players.head)
     Game.getPlayer(players.head).eval(newGame).map(_.score).getOrElse(0) should be(1)
   }
 
@@ -781,7 +781,7 @@ class EngineSpec extends FlatSpec with Matchers {
 
     val winners = makeSomeoneWinnerThenTakeTurn.eval(game)
 
-    winners should matchPattern { case MatchOver(_, "Tyler", _) => }
+    winners should matchPattern { case MatchOver(_, "Tyler", Nil, _) => }
   }
 
   it should "start a new match if there is a winner" in {
@@ -844,8 +844,12 @@ class EngineSpec extends FlatSpec with Matchers {
 
     val winners = makeSomeoneWinnerThenTakeTurn.eval(game)
 
-    winners should matchPattern { case GameOver(_, "Tyler", "Tyler") => }
+    winners should matchPattern { case GameOver(_, "Tyler", Nil, "Tyler") => }
   }
+
+  it should "award multiple points at the end of a match if necessary"
+
+  it should "detect if multiple players have won a game"
 
   //TODO: test that processturn will detect a match winner and a game winner
 
@@ -1437,7 +1441,7 @@ class EngineSpec extends FlatSpec with Matchers {
     val results = Game.processTurn("Tyler", Prince, Some("Kevin"), None)(basicRandomizer).eval(game)
 
     //because the burn card was a Princess, players(1) should have drawn it and won the last round
-    results should matchPattern { case MatchOver(_, "Kevin", _) => }
+    results should matchPattern { case MatchOver(_, "Kevin", Nil, _) => }
   }
 
   it should "fail if the targeted player is protected" in {
@@ -1898,6 +1902,132 @@ class EngineSpec extends FlatSpec with Matchers {
     result should matchPattern { case NextTurn(_, _) => }
     newGame.players.find(_.name == "Kevin").get.hand.head should be(Princess)
   }
+
+  behavior of "The jester card"
+
+  it should "award a point to the player who played jester if their target wins the match" in {
+    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    // use this randomizer for tests that need specific card
+    val stackedDeckRandomizer = Randomizer(
+      shuffleDeck = (s: Seq[Card]) => Seq(Guard, Jester) ++ s,
+      choosePlayer = (s: Seq[Player]) => s.head
+    )
+    //player 1 will get a jester
+    val game = Game.startMatch(Some(players.head))(stackedDeckRandomizer).exec(Game(players))
+
+    def targetPlayerThenMakeWinner = for {
+      turnResult <- Game.processTurn(players.head, Jester, Some(players(2)), None)(stackedDeckRandomizer)
+      _ <- Game.eliminatePlayer(players.head, isEliminated = true)
+      _ <- Game.eliminatePlayer(players(1), isEliminated = true)
+      _ <- Game.eliminatePlayer(players(3), isEliminated = true)
+      winners <- Game.checkMatchOver(stackedDeckRandomizer)
+    } yield (turnResult, winners)
+
+    val (newGame, (turnResult, winners)) = targetPlayerThenMakeWinner(game)
+    turnResult should matchPattern { case MatchOver(_, "Morgan", List("Tyler"), _) => }
+    winners should equal(List(players.head, players(1)))
+    newGame.players.find(_.name == players.head).get.score should be(1)
+    newGame.players.find(_.name == players(1)).get.score should be(0)
+    newGame.players.find(_.name == players(2)).get.score should be(1)
+    newGame.players.find(_.name == players(3)).get.score should be(0)
+  }
+
+  it should "not award any extra points if the target does not win the match" in {
+    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    // use this randomizer for tests that need specific card
+    val stackedDeckRandomizer = Randomizer(
+      shuffleDeck = (s: Seq[Card]) => Seq(Guard, Jester) ++ s,
+      choosePlayer = (s: Seq[Player]) => s.head
+    )
+    //player 1 will get a jester
+    val game = Game.startMatch(Some(players.head))(stackedDeckRandomizer).exec(Game(players))
+
+    def targetPlayerThenMakeWinner = for {
+      turnResult <- Game.processTurn(players.head, Jester, Some(players(1)), None)(stackedDeckRandomizer)
+      _ <- Game.eliminatePlayer(players.head, isEliminated = true)
+      _ <- Game.eliminatePlayer(players(1), isEliminated = true)
+      _ <- Game.eliminatePlayer(players(3), isEliminated = true)
+      winners <- Game.checkMatchOver(stackedDeckRandomizer)
+    } yield (turnResult, winners)
+
+    val (newGame, (turnResult, winners)) = targetPlayerThenMakeWinner(game)
+    turnResult should matchPattern { case MatchOver(_, "Morgan", Nil, _) => }
+    winners should equal(List(players.head))
+    newGame.players.find(_.name == players.head).get.score should be(0)
+    newGame.players.find(_.name == players(1)).get.score should be(0)
+    newGame.players.find(_.name == players(2)).get.score should be(1)
+    newGame.players.find(_.name == players(3)).get.score should be(0)
+  }
+
+  it should "not allow the player to target themself" in {
+    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    // use this randomizer for tests that need specific card
+    val stackedDeckRandomizer = Randomizer(
+      shuffleDeck = (s: Seq[Card]) => Seq(Guard, Jester) ++ s,
+      choosePlayer = (s: Seq[Player]) => s.head
+    )
+    //player 1 will get a jester
+    val game = Game.startMatch(Some(players.head))(stackedDeckRandomizer).exec(Game(players))
+    val (newGame, result1) = Game.processTurn(players.head, Jester, Some(players.head), None)(stackedDeckRandomizer).apply(game)
+    newGame should be(game)
+    result1 should matchPattern { case PlayError(_) => }
+  }
+
+  it should "fail if a target is not supplied" in {
+    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    // use this randomizer for tests that need specific card
+    val stackedDeckRandomizer = Randomizer(
+      shuffleDeck = (s: Seq[Card]) => Seq(Guard, Jester) ++ s,
+      choosePlayer = (s: Seq[Player]) => s.head
+    )
+    //player 1 will get a jester
+    val game = Game.startMatch(Some(players.head))(stackedDeckRandomizer).exec(Game(players))
+    val (newGame, result1) = Game.processTurn(players.head, Jester, None, None)(stackedDeckRandomizer).apply(game)
+    newGame should be(game)
+    result1 should matchPattern { case PlayError(_) => }
+  }
+
+  it should "fail if the targeted player is protected" in {
+    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    // use this randomizer for tests that need specific card
+    val stackedDeckRandomizer = Randomizer(
+      shuffleDeck = (s: Seq[Card]) => Seq(Guard, Jester) ++ s,
+      choosePlayer = (s: Seq[Player]) => s.head
+    )
+    //player 1 will get a jester
+    val game = Game.startMatch(Some(players.head))(stackedDeckRandomizer).exec(Game(players))
+
+    def protectThenTargetPlayer = for {
+      _ <- Game.protectPlayer(players(1), isProtected = true)
+      turnResult <- Game.processTurn(players.head, Jester, Some(players(1)), None)(stackedDeckRandomizer)
+    } yield turnResult
+
+    val (newGame, result1) = protectThenTargetPlayer(game)
+    newGame should be(game)
+    result1 should matchPattern { case PlayError(_) => }
+  }
+
+  it should "fail if the targeted player is eliminated" in {
+    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    // use this randomizer for tests that need specific card
+    val stackedDeckRandomizer = Randomizer(
+      shuffleDeck = (s: Seq[Card]) => Seq(Guard, Jester) ++ s,
+      choosePlayer = (s: Seq[Player]) => s.head
+    )
+    //player 1 will get a jester
+    val game = Game.startMatch(Some(players.head))(stackedDeckRandomizer).exec(Game(players))
+
+    def eliminateThenTargetPlayer = for {
+      _ <- Game.eliminatePlayer(players(1), isEliminated = true)
+      turnResult <- Game.processTurn(players.head, Jester, Some(players(1)), None)(stackedDeckRandomizer)
+    } yield turnResult
+
+    val (newGame, result1) = eliminateThenTargetPlayer(game)
+    newGame should be(game)
+    result1 should matchPattern { case PlayError(_) => }
+  }
+
+  it should "result in a tie if multiple players hit the point target at the end of a match"
 
   behavior of "The dowager queen card"
 

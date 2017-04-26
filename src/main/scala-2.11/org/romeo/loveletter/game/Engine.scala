@@ -2,7 +2,6 @@ package org.romeo.loveletter.game
 
 import scala.collection.immutable.List
 import scala.language.implicitConversions
-
 import scalaz.State
 
 case class Player(
@@ -300,24 +299,28 @@ object Game {
   }
 
   /**
-    * Checks if the match has a winner, If so, award them a point, return the player, and restart the match. Otherwise return none
+    * Checks if the match has a winner, If so, award them a point, award any additional points,
+    * return the player and any other players who recieved points with the match winner at the head,
+    * and restart the match. Otherwise return none.
     * Should be called at the end of each turn during game processing
     */
-  def checkMatchOver(implicit r: Randomizer): State[Game, Option[Player]] = {
-    findMatchWinner.flatMap(
-      _.map(p => awardPoint(p.name).
-        flatMap(_ => startMatch(Some(p.name))).
-        map(_ => Some(p): Option[Player])).
-        getOrElse(State.state(None)))
-  }
+  def checkMatchOver(implicit r: Randomizer): State[Game, List[Player]] = for {
+    winner <- findMatchWinner
+    points <- winner.map { w =>
+      for {
+        ww <- awardPoint(w.name)
+        _ <- startMatch(Some(w.name))
+      } yield ww.toList
+    }.getOrElse(State.state(List[Player]()))
+  } yield points
 
   trait TurnResult
 
   case class PlayError(message: String) extends TurnResult
 
-  case class GameOver(lastTurnResult: Message, matchWinner: String, gameWinner: String) extends TurnResult
+  case class GameOver(lastTurnResult: Message, matchWinner: String, otherPoints: List[String], gameWinner: String) extends TurnResult
 
-  case class MatchOver(lastTurnResult: Message, matchWinner: String, nextPlayer: String) extends TurnResult
+  case class MatchOver(lastTurnResult: Message, matchWinner: String, otherPoints: List[String], nextPlayer: String) extends TurnResult
 
   case class NextTurn(lastTurnResult: Message, nextPlayer: String) extends TurnResult
 
@@ -359,20 +362,21 @@ object Game {
             actionMessage <- discard.doAction(p, targetName, guess)
             _ <- maybeDiscard(actionMessage.isRight, p.name, discard)
             _ <- maybeEndTurn(actionMessage.isRight)
-            matchWinner <- checkMatchOver(r)
+            pointsReceived <- checkMatchOver(r)
             nextPlayer <- currentPlayer
             gameWinner <- findWinner
-            _ <- maybeDrawCard(actionMessage.isRight && matchWinner.isEmpty, nextPlayer.name)
+            _ <- maybeDrawCard(actionMessage.isRight && pointsReceived.isEmpty, nextPlayer.name)
           } yield {
             actionMessage match {
               case Right(m) => {
-                if(gameWinner.isDefined) {
+                if (gameWinner.isDefined) {
                   val gameWinnerName = gameWinner.get.name
-                  // the match *should* have a winner, but just in case fall back to the game winner
-                  val matchWinnerName = matchWinner.map(_.name).getOrElse(gameWinnerName)
-                  GameOver(m, matchWinnerName, gameWinnerName)
-                } else if(matchWinner.isDefined) {
-                  MatchOver(m, matchWinner.get.name, nextPlayer.name)
+                  val pointsNames = pointsReceived.map(_.name)
+                  val (matchWinnerName, otherPointsNames) = (pointsNames.head, pointsNames.tail)
+                  GameOver(m, matchWinnerName, otherPointsNames, gameWinnerName)
+                } else if (pointsReceived.nonEmpty) {
+                  val pointsNames = pointsReceived.map(_.name)
+                  MatchOver(m, pointsNames.head, pointsNames.tail, nextPlayer.name)
                 } else {
                   NextTurn(m, nextPlayer.name)
                 }

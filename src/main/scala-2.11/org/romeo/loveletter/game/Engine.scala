@@ -9,6 +9,7 @@ case class Player(
                    hand: Seq[Card] = Nil,
                    isEliminated: Boolean = false,
                    isProtected: Boolean = false,
+                 jesterTarget: Option[String] = None, //if the player has player jester on someone, that player's name will be here
                    score: Int = 0) {
   override def toString: String = s"$name, cards:(${hand.map(_.name).mkString(", ")}), isEliminated:$isEliminated, isProtected:$isProtected, score:$score"
 }
@@ -269,6 +270,11 @@ object Game {
       p2 <- updatePlayer(p.map(_.copy(isProtected = isProtected)))
     } yield p2
   }
+
+  /**
+    * sets a jester target for a player and return the new player. If the player or target is not in the game returns None
+    */
+  def addJesterTarget(playerName: String, targetName: String): State[Game, Option[Player]] = ???
 
   /**
     * sets the player's "eliminated" value to true or false. returns the new player, or None if player doesn't exist

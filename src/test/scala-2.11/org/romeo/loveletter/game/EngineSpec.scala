@@ -188,6 +188,24 @@ class EngineSpec extends FlatSpec with Matchers {
     }
   }
 
+  it should "have all players without a jester target, even if they had one in the previous match" in {
+    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    val game = Game(players)
+
+    def modifyPlayersThenRestartMatch = for {
+      _ <- Game.startMatch()(basicRandomizer)
+      _ <- Game.addJesterTarget(playerName = players.head, targetName = players(1))
+      _ <- Game.addJesterTarget(playerName = players(1), targetName = players(2))
+      _ <- Game.addJesterTarget(playerName = players(2), targetName = players(1))
+      _ <- Game.startMatch()(basicRandomizer)
+    } yield ()
+
+    val newGame = modifyPlayersThenRestartMatch.exec(game)
+    newGame.players.foreach { p =>
+      p.jesterTarget should be(None)
+    }
+  }
+
   it should "have no winner if more than one player is left and the discard is not empty" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
     val game = Game(players)
@@ -575,6 +593,42 @@ class EngineSpec extends FlatSpec with Matchers {
     unprotectedPlayer.isProtected should be(false)
   }
 
+  it should "give a player a jester target when called" in {
+    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    val game = Game(players)
+
+    def protectSome = for {
+      ty <- Game.addJesterTarget(players.head, players(1))
+      kev <- Game.addJesterTarget(players(1), players.head)
+    } yield (ty.get, kev.get)
+
+    val (newGame, (ty, kev)) = protectSome(game)
+    ty.jesterTarget should be(Some(players(1)))
+    kev.jesterTarget should be(Some(players.head))
+    Game.getPlayer(players.head).eval(newGame).get.jesterTarget should be(Some(players(1)))
+    Game.getPlayer(players(1)).eval(newGame).get.jesterTarget should be(Some(players.head))
+    Game.getPlayer(players(2)).eval(newGame).get.jesterTarget should be(None)
+    Game.getPlayer(players(3)).eval(newGame).get.jesterTarget should be(None)
+  }
+
+  it should "return None and not change game state if a player not in the game gets a jester target" in {
+    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    val game = Game(players)
+
+    val (newGame, p) = Game.addJesterTarget("BADPLAYER", "Kevin")(game)
+    p should be(None)
+    newGame should be(game)
+  }
+
+  it should "return None and not change game state if a player not in the game is targeted by jester" in {
+    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    val game = Game(players)
+
+    val (newGame, p) = Game.addJesterTarget("Tyler", "BADPLAYER")(game)
+    p should be(None)
+    newGame should be(game)
+  }
+
   it should "be skipped in the turn order if they are eliminated" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
     // use this randomizer for tests that need to ignore card effects. This will give the first player a countess
@@ -847,9 +901,9 @@ class EngineSpec extends FlatSpec with Matchers {
     winners should matchPattern { case GameOver(_, "Tyler", Nil, "Tyler") => }
   }
 
-  it should "award multiple points at the end of a match if necessary"
+  it should "award multiple points at the end of a match if necessary" in (pending)
 
-  it should "detect if multiple players have won a game"
+  it should "detect if multiple players have won a game" in (pending)
 
   //TODO: test that processturn will detect a match winner and a game winner
 
@@ -2027,7 +2081,7 @@ class EngineSpec extends FlatSpec with Matchers {
     result1 should matchPattern { case PlayError(_) => }
   }
 
-  it should "result in a tie if multiple players hit the point target at the end of a match"
+  it should "result in a tie if multiple players hit the point target at the end of a match" in (pending)
 
   behavior of "The dowager queen card"
 

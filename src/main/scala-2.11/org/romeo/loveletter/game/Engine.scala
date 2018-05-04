@@ -1,5 +1,7 @@
 package org.romeo.loveletter.game
 
+import org.romeo.loveletter.util.GrammarUtil
+
 import scala.collection.immutable.List
 import scala.language.implicitConversions
 import scalaz.{Applicative, State}
@@ -213,9 +215,9 @@ object Game {
   }
 
   /**
-    * returns the winning player, or None if there isn't one
+    * returns the winning players, or Nil if there isn't one
     */
-  def findWinner: State[Game, Option[Player]] = State[Game, Option[Player]] {
+  def findWinners: State[Game, Seq[Player]] = State[Game, Seq[Player]] {
     g: Game => {
       val threshold = g.players.length match {
         case 2 => 7
@@ -223,7 +225,7 @@ object Game {
         case 4 => 4
         case _ => throw new AssertionError("Game can only have 2-4 players")
       }
-      (g, g.players.find(_.score >= threshold))
+      (g, g.players.filter(_.score >= threshold))
     }
   }
 
@@ -395,16 +397,16 @@ object Game {
             _ <- maybeEndTurn(actionMessage.isRight)
             pointsReceived <- checkMatchOver(r)
             nextPlayer <- currentPlayer
-            gameWinner <- findWinner
+            gameWinners <- findWinners
             _ <- maybeDrawCard(actionMessage.isRight && pointsReceived.isEmpty, nextPlayer.name)
           } yield {
             actionMessage match {
               case Right(m) => {
-                if (gameWinner.isDefined) {
-                  val gameWinnerName = gameWinner.get.name
+                if (gameWinners.nonEmpty) {
+                  val gameWinnersNames = GrammarUtil.joinWithCommasPlusAnd(gameWinners.map(_.name))
                   val pointsNames = pointsReceived.map(_.name)
                   val (matchWinnerName, otherPointsNames) = (pointsNames.head, pointsNames.tail)
-                  GameOver(m, matchWinnerName, otherPointsNames, gameWinnerName)
+                  GameOver(m, matchWinnerName, otherPointsNames, gameWinnersNames)
                 } else if (pointsReceived.nonEmpty) {
                   val pointsNames = pointsReceived.map(_.name)
                   MatchOver(m, pointsNames.head, pointsNames.tail, nextPlayer.name)

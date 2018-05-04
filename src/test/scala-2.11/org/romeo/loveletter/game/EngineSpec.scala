@@ -38,15 +38,15 @@ class EngineSpec extends FlatSpec with Matchers {
       _ <- Game.awardPoint(players(1))
       _ <- Game.awardPoint(players(1))
       _ <- Game.awardPoint(players(1))
-      nonWinner <- Game.findWinner
+      nonWinner <- Game.findWinners
       _ <- Game.awardPoint(players(1))
-      winner <- Game.findWinner
+      winner <- Game.findWinners
     } yield (nonWinner, winner)
 
     val (nonWinner, winner) = giveSomePoints.eval(game)
     nonWinner should be(empty)
-    winner.get.name should be(players(1))
-    winner.get.score should be(7)
+    winner.head.name should be(players(1))
+    winner.head.score should be(7)
   }
 
   it should "report a winner if a player has 5 points in a 3 player game" in {
@@ -58,15 +58,15 @@ class EngineSpec extends FlatSpec with Matchers {
       _ <- Game.awardPoint(players(1))
       _ <- Game.awardPoint(players(1))
       _ <- Game.awardPoint(players(1))
-      nonWinner <- Game.findWinner
+      nonWinner <- Game.findWinners
       _ <- Game.awardPoint(players(1))
-      winner <- Game.findWinner
+      winner <- Game.findWinners
     } yield (nonWinner, winner)
 
     val (nonWinner, winner) = giveSomePoints.eval(game)
     nonWinner should be(empty)
-    winner.get.name should be(players(1))
-    winner.get.score should be(5)
+    winner.head.name should be(players(1))
+    winner.head.score should be(5)
   }
 
   it should "report a winner if a player has 4 points in a 4 player game" in {
@@ -77,15 +77,15 @@ class EngineSpec extends FlatSpec with Matchers {
       _ <- Game.awardPoint(players(1))
       _ <- Game.awardPoint(players(1))
       _ <- Game.awardPoint(players(1))
-      nonWinner <- Game.findWinner
+      nonWinner <- Game.findWinners
       _ <- Game.awardPoint(players(1))
-      winner <- Game.findWinner
+      winner <- Game.findWinners
     } yield (nonWinner, winner)
 
     val (nonWinner, winner) = giveSomePoints.eval(game)
     nonWinner should be(empty)
-    winner.get.name should be(players(1))
-    winner.get.score should be(4)
+    winner.head.name should be(players(1))
+    winner.head.score should be(4)
   }
 
   behavior of "The first player"
@@ -929,7 +929,33 @@ class EngineSpec extends FlatSpec with Matchers {
   }
 
   it should "detect if multiple players have won a game" in {
-    pending
+    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    // use this randomizer for tests that need to ignore card effects. This will give everyone a countess
+    val noEffectRandomizer = Randomizer(
+      shuffleDeck = (s: Seq[Card]) => Seq(Guard, Countess, Countess, Countess, Countess, Countess, Countess, Countess) ++ s,
+      choosePlayer = (s: Seq[Player]) => s.head
+    )
+    //Use 24 as a seed for tests that need to ignore card effects. This will give the first player a countess
+    val game = Game.startMatch(Some(players.head))(noEffectRandomizer).exec(Game(players))
+
+    def makeSomeoneWinnerThenTakeTurn = for {
+      _ <- Game.eliminatePlayer(players(1), isEliminated = true)
+      _ <- Game.eliminatePlayer(players(2), isEliminated = true)
+      _ <- Game.eliminatePlayer(players(3), isEliminated = true)
+      _ <- Game.awardPoint(players.head)
+      _ <- Game.awardPoint(players.head)
+      _ <- Game.awardPoint(players.head)
+      _ <- Game.awardPoint(players(1))
+      _ <- Game.awardPoint(players(1))
+      _ <- Game.awardPoint(players(1))
+      _ <- Game.addJesterTarget(players(1), players.head)
+      p <- Game.currentPlayer
+      winners <- Game.processTurn(p.name, p.hand.head)(noEffectRandomizer)
+    } yield winners
+
+    val winners = makeSomeoneWinnerThenTakeTurn.eval(game)
+
+    winners should matchPattern { case GameOver(_, "Tyler", Seq("Kevin"), "Tyler and Kevin") => }
   }
 
   //TODO: test that processturn will detect a match winner and a game winner

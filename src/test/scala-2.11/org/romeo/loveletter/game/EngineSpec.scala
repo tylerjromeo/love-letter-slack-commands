@@ -901,9 +901,36 @@ class EngineSpec extends FlatSpec with Matchers {
     winners should matchPattern { case GameOver(_, "Tyler", Nil, "Tyler") => }
   }
 
-  it should "award multiple points at the end of a match if necessary" in (pending)
+  it should "award multiple points at the end of a match if necessary" in {
+        val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    // use this randomizer for tests that need to ignore card effects. This will give everyone a countess
+    val noEffectRandomizer = Randomizer(
+      shuffleDeck = (s: Seq[Card]) => Seq(Guard, Countess, Countess, Countess, Countess, Countess, Countess, Countess) ++ s,
+      choosePlayer = (s: Seq[Player]) => s.head
+    )
+    val game = Game.startMatch(Some(players.head))(noEffectRandomizer).exec(Game(players))
 
-  it should "detect if multiple players have won a game" in (pending)
+    def makeSomeoneWinnerThenTakeTurn = for {
+      _ <- Game.eliminatePlayer(players(1), isEliminated = true)
+      _ <- Game.eliminatePlayer(players(2), isEliminated = true)
+      _ <- Game.eliminatePlayer(players(3), isEliminated = true)
+      _ <- Game.addJesterTarget(players(1), players.head)
+      p <- Game.currentPlayer
+      winners <- Game.processTurn(p.name, p.hand.head)(noEffectRandomizer)
+    } yield winners
+
+    val (newGame, winners) = makeSomeoneWinnerThenTakeTurn(game)
+
+    winners should matchPattern { case MatchOver(_, "Tyler", Seq("Kevin"), _) => }
+    newGame.players.find(_.name == "Tyler").map(_.score).get shouldBe 1
+    newGame.players.find(_.name == "Kevin").map(_.score).get shouldBe 1
+    newGame.players.find(_.name == "Morgan").map(_.score).get shouldBe 0
+    newGame.players.find(_.name == "Trevor").map(_.score).get shouldBe 0
+  }
+
+  it should "detect if multiple players have won a game" in {
+    pending
+  }
 
   //TODO: test that processturn will detect a match winner and a game winner
 

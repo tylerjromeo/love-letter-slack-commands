@@ -2,7 +2,6 @@ package org.romeo.loveletter.game
 
 import scala.util.Random
 import scalaz.State
-
 import org.romeo.loveletter.game.Game._
 import org.romeo.loveletter.persistence.Datastore
 
@@ -41,19 +40,21 @@ class GameManager(val datastore: Datastore[Game], rand: Random) {
           case PlayError(message) => {
             Left(Private(message))
           }
-          case GameOver(lastTurnResult, matchWinner, gameWinner) => {
-            Right(Seq[Message](
-              lastTurnResult,
-              Public(s"!!! $matchWinner has won the match and gets a point !!!"),
-              Public(s"!!!!!! $gameWinner has won the game !!!!!!")
-            ))
+          case GameOver(lastTurnResult, matchWinner, otherPoints, gameWinner) => {
+            Right(Seq[Seq[Message]](
+              Seq(lastTurnResult),
+              Seq(Public(s"!!! $matchWinner has won the match and gets a point !!!")),
+              otherPoints.map(pointWinner => Public(s"!!! $pointWinner also gets one point !!!")),
+              Seq(Public(s"!!!!!! $gameWinner has won the game !!!!!!"))
+            ).flatten)
           }
-          case MatchOver(lastTurnResult, matchWinner, nextPlayer) => {
-            Right(Seq[Message](
-              lastTurnResult,
-              Public(s"!!! $matchWinner has won the match and gets a point !!!"),
-              Public(s"!!!!!! A new game has started, it is $nextPlayer's turn !!!!!!")
-            ))
+          case MatchOver(lastTurnResult, matchWinner, otherPoints, nextPlayer) => {
+            Right(Seq[Seq[Message]](
+              Seq(lastTurnResult),
+              Seq(Public(s"!!! $matchWinner has won the match and gets a point !!!")),
+              otherPoints.map(pointWinner => Public(s"!!! $pointWinner also gets one point !!!")),
+              Seq(Public(s"!!!!!! A new game has started, it is $nextPlayer's turn !!!!!!"))
+            ).flatten)
           }
           case NextTurn(lastTurnResult, nextPlayer) => {
             Right(Seq[Message](

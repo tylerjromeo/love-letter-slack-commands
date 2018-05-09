@@ -9,6 +9,7 @@ import scala.language.implicitConversions
 case class Player(
                    name: String, //name must be unique among players in the game
                    hand: Seq[Card] = Nil,
+                   discard: List[Card] = Nil,
                    isEliminated: Boolean = false,
                    isProtected: Boolean = false,
                    jesterTarget: Option[String] = None, //if the player has player jester on someone, that player's name will be here
@@ -25,7 +26,6 @@ case class Game(
                  players: Seq[Player],
                  deck: Seq[Card] = Deck.cards,
                  burnCard: Seq[Card] = Nil,
-                 discard: List[Card] = Nil,
                  visibleDiscard: Seq[Card] = Nil) {
   require(players.length >= 2, "Need at least 2 players")
   require(players.length <= 4, "No more than 4 players")
@@ -188,8 +188,8 @@ object Game {
     playerOption <- getPlayer(playerName)
     cards <- playerOption.filter(_.hand.contains(c)).map(
       p => for {
-        _ <- updatePlayer(Some(p.copy(hand = p.hand.diff(Seq(c)))))
-        discard <- discard(c)
+        p <- updatePlayer(Some(p.copy(hand = p.hand.diff(Seq(c)), discard = c :: p.discard)))
+        discard = p.map(_.discard).getOrElse(Nil)
       } yield discard
     ).getOrElse(State[Game, List[Card]](g => (g, Nil)))
   } yield cards
@@ -201,16 +201,6 @@ object Game {
     getPlayer(playerName).flatMap(player => {
       updatePlayer(player.map(p => p.copy(score = p.score + 1)))
     })
-  }
-
-  /**
-    * Adds a card to the discard pile, then returns the discard pile
-    */
-  def discard(c: Card): State[Game, List[Card]] = State[Game, List[Card]] {
-    g: Game => {
-      val newDiscard = c :: g.discard
-      (g.copy(discard = newDiscard), newDiscard)
-    }
   }
 
   /**

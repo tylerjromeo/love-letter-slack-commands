@@ -69,18 +69,20 @@ class GameManager(val datastore: Datastore[Game], rand: Random) {
 
   def getGameInfo(gameId: String): String = {
     datastore.get(gameId).map(game => {
-      val (currentPlayer, allPlayers, topDiscard, visibleDiscard, cardsLeft) = (for {
+      val (currentPlayer, allPlayers, topDiscards, visibleDiscard, cardsLeft) = (for {
         currentPlayer <- Game.currentPlayer
         allPlayers <- State[Game, Seq[Player]](g => (g, g.players))
-        topDiscard <- State[Game, Option[Card]](g => (g, g.discard.headOption))
+        topDiscards <- State[Game, Seq[(Player, Option[Card])]](g => (g, g.players.map(p => (p, p.discard.headOption))))
         visibleDiscard <- State[Game, Seq[Card]](g => (g, g.visibleDiscard))
         cardsLeft <- State[Game, Int](g => (g, g.deck.length))
-      } yield (currentPlayer.name, allPlayers, topDiscard.map(_.name), visibleDiscard, cardsLeft)).eval(game)
+      } yield (currentPlayer.name, allPlayers, topDiscards, visibleDiscard, cardsLeft)).eval(game)
       Seq(
         s"It is $currentPlayer's turn",
         s"There are $cardsLeft cards in the deck",
         if (visibleDiscard.nonEmpty) s"${visibleDiscard.map(_.name).mkString(", ")} are visibly discarded" else "There are no visible burn cards",
-        topDiscard.map(c => s"the discard pile has a $c on top").getOrElse("The discard pile is empty"),
+        topDiscards.collect{
+          case (player, Some(card)) => s"${player.name}'s discard pile has a ${card.name} on top"
+        }.mkString("\n"),
         allPlayers.map(p => s"${p.name} has ${p.score} points").mkString("\n")
       ).mkString("\n")
     }).getOrElse(s"No game with id $gameId exists")

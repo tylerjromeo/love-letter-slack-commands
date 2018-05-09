@@ -142,7 +142,7 @@ class EngineSpec extends FlatSpec with Matchers {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
     val game = Game.startMatch(Some(players.head))(basicRandomizer).exec(Game(players))
 
-    val cardsInPlay = game.players.foldLeft(0)((acc, p) => acc + p.hand.length) + game.deck.length + game.visibleDiscard.length + game.discard.length
+    val cardsInPlay = game.players.foldLeft(0)((acc, p) => acc + p.hand.length) + game.deck.length + game.visibleDiscard.length + game.players.map(_.discard.length).sum
     cardsInPlay + 1 should be(org.romeo.loveletter.game.Deck.cards.length)
   }
 
@@ -150,7 +150,7 @@ class EngineSpec extends FlatSpec with Matchers {
     val players = Seq("Tyler", "Kevin")
     val game = Game.startMatch(Some(players.head))(basicRandomizer).exec(Game(players))
 
-    val cardsInPlay = game.players.foldLeft(0)((acc, p) => acc + p.hand.length) + game.deck.length + game.visibleDiscard.length + game.discard.length
+    val cardsInPlay = game.players.foldLeft(0)((acc, p) => acc + p.hand.length) + game.deck.length + game.visibleDiscard.length + game.players.map(_.discard.length).sum
     cardsInPlay + 1 should be(org.romeo.loveletter.game.Deck.cards.length)
   }
 
@@ -372,7 +372,7 @@ class EngineSpec extends FlatSpec with Matchers {
     val (newGame, (newDeck, burntCard)) = shuffleAndBurn(basicRandomizer)(game)
     burntCard should be(game.deck.head)
     newGame.deck should be(newDeck.tail)
-    newGame.discard should be(game.discard)
+    newGame.players should be(game.players)
     newGame.visibleDiscard should be(game.visibleDiscard)
   }
 
@@ -399,7 +399,7 @@ class EngineSpec extends FlatSpec with Matchers {
     } yield (deck, burntCard)
 
     val newGame = shuffleAndBurn(basicRandomizer).exec(game)
-    newGame.discard should be(game.discard)
+    newGame.players should be(game.players)
     newGame.visibleDiscard should be(game.visibleDiscard)
   }
 
@@ -413,7 +413,7 @@ class EngineSpec extends FlatSpec with Matchers {
     } yield burntCard
 
     val (newGame, burntCard) = shuffleAndBurn(basicRandomizer)(game)
-    newGame.discard should be(game.discard)
+    newGame.players should be(game.players)
     newGame.visibleDiscard should contain theSameElementsAs burntCard
   }
 
@@ -543,7 +543,7 @@ class EngineSpec extends FlatSpec with Matchers {
 
     val (newGame, kevsCard) = checkKevinsCardThenEliminate(game)
 
-    newGame.discard.head should be(kevsCard)
+    newGame.players.find(_.name == players(1)).get.discard.head should be(kevsCard)
   }
 
   it should "not change the state of the game if a user not in the game is eliminated" in {
@@ -662,7 +662,7 @@ class EngineSpec extends FlatSpec with Matchers {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
     val game = Game(players)
 
-    game.discard shouldBe empty
+    game.players.foreach(_.discard shouldBe empty)
   }
 
   it should "contain cards that players discard" in {
@@ -676,7 +676,8 @@ class EngineSpec extends FlatSpec with Matchers {
     } yield (player, discard)
 
     val (newGame, (player, discard)) = shuffleDrawAndDiscard(basicRandomizer)(game)
-    newGame.discard should be(discard)
+    Game.getPlayer(players.head).eval(newGame).get.discard should be(discard)
+    newGame.players.filterNot(_.name == players.head).foreach(_.discard should be(empty))
     discard.head should be(player.get.hand.head)
   }
 
@@ -797,7 +798,7 @@ class EngineSpec extends FlatSpec with Matchers {
     nextPlayer.hand should have length 2
   }
 
-  it should "add the discarded card to the discard pile" in {
+  it should "add the discarded card to the players discard pile" in {
     val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
     // use this randomizer for tests that need to ignore card effects. This will give everyone a countess
     val noEffectRandomizer = Randomizer(
@@ -813,7 +814,8 @@ class EngineSpec extends FlatSpec with Matchers {
 
     val (newGame, discard) = takeATurn(game)
 
-    newGame.discard.head should be(discard)
+    newGame.players.find(_.name == "Tyler").get.discard.head should be(discard)
+    newGame.players.filterNot(_.name == "Tyler").foreach(_.discard should be(empty))
   }
 
   it should "detect and return the winner of a match" in {
@@ -1535,8 +1537,8 @@ class EngineSpec extends FlatSpec with Matchers {
       p should be("Kevin")
     }
     currentPlayer.name should be(players(1))
-    newGame.discard should contain(Prince)
-    newGame.discard should contain(Guard)
+    newGame.players.find(_.name == "Tyler").get.discard should be(List(Prince))
+    newGame.players.find(_.name == "Kevin").get.discard should be(List(Guard))
   }
 
   it should "cause the player to draw the burn card if they are targeted while there is nothing in the draw pile" in {
@@ -1624,7 +1626,8 @@ class EngineSpec extends FlatSpec with Matchers {
     }
     nextPlayer.name should be(players(1))
     p2.name should be(players.head)
-    newGame.discard should contain only(Guard, Prince)
+    newGame.players.find(_.name == "Tyler").get.discard should contain only(Guard, Prince)
+    newGame.players.filterNot(_.name == "Tyler").foreach(_.discard should be(empty))
 
   }
 
@@ -1678,7 +1681,8 @@ class EngineSpec extends FlatSpec with Matchers {
     currentPlayer.name should be(players(1))
     currentPlayer.hand should contain(Handmaid)
     kingPlayer.hand should contain only Priest
-    newGame.discard should contain only King
+    newGame.players.find(_.name == "Tyler").get.discard should contain only King
+    newGame.players.filterNot(_.name == "Tyler").foreach(_.discard should be(empty))
   }
 
   it should "fail if the targeted player is protected" in {

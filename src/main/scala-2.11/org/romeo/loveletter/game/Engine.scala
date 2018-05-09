@@ -1,10 +1,10 @@
 package org.romeo.loveletter.game
 
 import org.romeo.loveletter.util.GrammarUtil
+import scalaz.{Applicative, State}
 
 import scala.collection.immutable.List
 import scala.language.implicitConversions
-import scalaz.{Applicative, State}
 
 case class Player(
                    name: String, //name must be unique among players in the game
@@ -184,16 +184,15 @@ object Game {
     * removes a card from the given players hand and puts it in the discard pile. Returns the discard pile
     * does not change the state and returns an empty list if an invalid player or card is selected
     */
-  def playerDiscard(playerName: String, c: Card): State[Game, List[Card]] = {
-    getPlayer(playerName).flatMap(_.flatMap({
-      p =>
-        if (p.hand.contains(c)) {
-          Some(updatePlayer(Some(p.copy(hand = p.hand.diff(Seq(c))))).flatMap(_ => discard(c)))
-        } else {
-          None
-        }
-    }).getOrElse(State[Game, List[Card]](g => (g, Nil))))
-  }
+  def playerDiscard(playerName: String, c: Card): State[Game, List[Card]] = for {
+    playerOption <- getPlayer(playerName)
+    cards <- playerOption.filter(_.hand.contains(c)).map(
+      p => for {
+        _ <- updatePlayer(Some(p.copy(hand = p.hand.diff(Seq(c)))))
+        discard <- discard(c)
+      } yield discard
+    ).getOrElse(State[Game, List[Card]](g => (g, Nil)))
+  } yield cards
 
   /**
     * increments a players score, then returns that player. returns none and leaves the state the same if the player doesn't exist

@@ -2321,5 +2321,27 @@ class EngineSpec extends FlatSpec with Matchers {
     newGame should be(game)
     result1 should matchPattern { case PlayError(_) => }
   }
+
+  behavior of "the Count card"
+
+  it should "have no effect when discarded" in {
+    pending
+  }
+
+  it should "increase the value of your card by 1 if in discard at the end of the game" in {
+    pending
+  }
+
+  it should "stack if multiple Counts are in discard" in {
+    pending
+  }
+
+  it should "increase the numbers of every player who has a count in their discard pile" in {
+    pending
+  }
+
+  it should "behave correctly when interacting with princess and bishop TODO: IMPLEMENT WITH BISHOP LOGIC" in {
+    pending
+  }
 }
 

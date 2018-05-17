@@ -2325,22 +2325,160 @@ class EngineSpec extends FlatSpec with Matchers {
   behavior of "the Count card"
 
   it should "have no effect when discarded" in {
-    pending
+    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    // use this randomizer for tests that need specific card
+    val stackedDeckRandomizer = Randomizer(
+      shuffleDeck = (s: Seq[Card]) => Seq(Guard, Count, Priest, Guard, Guard, Guard) ++ s,
+      choosePlayer = (s: Seq[Player]) => s.head
+    )
+    //player 1 will get a countess and a guard
+    val game = Game.startMatch(Some(players.head))(stackedDeckRandomizer).exec(Game(players))
+
+    def discardCount = for {
+      result <- Game.processTurn(players.head, Count, None, None)(stackedDeckRandomizer)
+      p <- Game.currentPlayer
+    } yield (p, result)
+
+    val (nextPlayer, result) = discardCount.eval(game)
+    inside(result) { case NextTurn(_, p) =>
+      p should be("Kevin")
+    }
+    nextPlayer.name should be(players(1))
   }
 
   it should "increase the value of your card by 1 if in discard at the end of the game" in {
-    pending
+    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    val game = Game(players)
+
+    def repeat[A, B](n: Int, s: State[A, B]): State[A, B] = if (n <= 1) s else s.flatMap(_ => repeat(n - 1, s))
+
+    val singleTurn = for {
+      _ <- Game.endTurn
+      currentPlayer <- Game.currentPlayer
+      _ <- Game.drawCard(currentPlayer.name)
+    } yield ()
+
+    // stack the deck for player 0 and player 2 to get the countess, and player 0 will get a count
+    val stackedDeck = Seq(Guard, Countess, Priest, Countess, Guard, Count, Guard, Guard, Guard, Guard, Guard, Guard, Guard, Guard)
+    val stackedRandomizer = Randomizer(
+      shuffleDeck = (_) => stackedDeck,
+      choosePlayer = (s: Seq[Player]) => s.head
+    )
+
+    val playTheGame = for {
+      _ <- Game.startMatch(Some(players.head))(stackedRandomizer) //player(0) and player(2) should get the 7
+      _ <- repeat(stackedDeck.length - 6, singleTurn)
+      _ <- Game.eliminatePlayer(players.head, isEliminated = true)
+      winner <- Game.checkMatchOver(basicRandomizer)
+    } yield winner
+
+    val (newGame, winner) = playTheGame(game)
+
+    winner should not be empty
+    winner.head.name should be(players.head)
+    Game.getPlayer(players.head).eval(newGame).map(_.score) should be(Some(1))
+  }
+
+  it should "increase the value of your card by 1 if in discard at the end of the game (different player)" in {
+    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    val game = Game(players)
+
+    def repeat[A, B](n: Int, s: State[A, B]): State[A, B] = if (n <= 1) s else s.flatMap(_ => repeat(n - 1, s))
+
+    val singleTurn = for {
+      _ <- Game.endTurn
+      currentPlayer <- Game.currentPlayer
+      _ <- Game.drawCard(currentPlayer.name)
+    } yield ()
+
+    // stack the deck for player 0 and player 2 to get the countess, and player 2 will get a count
+    val stackedDeck = Seq(Guard, Countess, Priest, Countess, Guard, Guard, Guard, Count, Guard, Guard, Guard, Guard, Guard, Guard)
+    val stackedRandomizer = Randomizer(
+      shuffleDeck = (_) => stackedDeck,
+      choosePlayer = (s: Seq[Player]) => s.head
+    )
+
+    val playTheGame = for {
+      _ <- Game.startMatch(Some(players.head))(stackedRandomizer) //player(0) and player(2) should get the 7
+      _ <- repeat(stackedDeck.length - 6, singleTurn)
+      _ <- Game.eliminatePlayer(players.head, isEliminated = true)
+      winner <- Game.checkMatchOver(basicRandomizer)
+    } yield winner
+
+    val (newGame, winner) = playTheGame(game)
+
+    winner should not be empty
+    winner.head.name should be(players(2))
+    Game.getPlayer(players(2)).eval(newGame).map(_.score) should be(Some(1))
   }
 
   it should "stack if multiple Counts are in discard" in {
-    pending
+    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    val game = Game(players)
+
+    def repeat[A, B](n: Int, s: State[A, B]): State[A, B] = if (n <= 1) s else s.flatMap(_ => repeat(n - 1, s))
+
+    val singleTurn = for {
+      _ <- Game.endTurn
+      currentPlayer <- Game.currentPlayer
+      _ <- Game.drawCard(currentPlayer.name)
+    } yield ()
+
+    // stack the deck for player 0 to get a princess, and player 2 will get a countess and 2 counts
+    val stackedDeck = Seq(Guard, Princess, Priest, Countess, Guard, Guard, Guard, Count, Guard, Guard, Guard, Count, Guard, Guard)
+    val stackedRandomizer = Randomizer(
+      shuffleDeck = (_) => stackedDeck,
+      choosePlayer = (s: Seq[Player]) => s.head
+    )
+
+    val playTheGame = for {
+      _ <- Game.startMatch(Some(players.head))(stackedRandomizer)
+      _ <- repeat(stackedDeck.length - 6, singleTurn)
+      _ <- Game.eliminatePlayer(players.head, isEliminated = true)
+      winner <- Game.checkMatchOver(basicRandomizer)
+    } yield winner
+
+    val (newGame, winner) = playTheGame(game)
+
+    winner should not be empty
+    winner.head.name should be(players(2))
+    Game.getPlayer(players(2)).eval(newGame).map(_.score) should be(Some(1))
   }
 
   it should "increase the numbers of every player who has a count in their discard pile" in {
-    pending
+    val players = Seq("Tyler", "Kevin", "Morgan", "Trevor")
+    val game = Game(players)
+
+    def repeat[A, B](n: Int, s: State[A, B]): State[A, B] = if (n <= 1) s else s.flatMap(_ => repeat(n - 1, s))
+
+    val singleTurn = for {
+      _ <- Game.endTurn
+      currentPlayer <- Game.currentPlayer
+      _ <- Game.drawCard(currentPlayer.name)
+    } yield ()
+
+    // stack the deck for player 0 to get a princess and 1 count, and player 2 will get a king and 2 counts
+    val stackedDeck = Seq(Guard, Princess, Priest, Countess, Guard, Count, Guard, Count, Guard, Guard, Guard, Count, Guard, Guard)
+    val stackedRandomizer = Randomizer(
+      shuffleDeck = (_) => stackedDeck,
+      choosePlayer = (s: Seq[Player]) => s.head
+    )
+
+    val playTheGame = for {
+      _ <- Game.startMatch(Some(players.head))(stackedRandomizer)
+      _ <- repeat(stackedDeck.length - 6, singleTurn)
+      _ <- Game.eliminatePlayer(players.head, isEliminated = true)
+      winner <- Game.checkMatchOver(basicRandomizer)
+    } yield winner
+
+    val (newGame, winner) = playTheGame(game)
+
+    winner should not be empty
+    winner.head.name should be(players.head)
+    Game.getPlayer(players.head).eval(newGame).map(_.score) should be(Some(1))
   }
 
-  it should "behave correctly when interacting with princess and bishop TODO: IMPLEMENT WITH BISHOP LOGIC" in {
+  it should "TODO: IMPLEMENT WITH BISHOP LOGIC behave correctly when interacting with princess and bishop" in {
     pending
   }
 }

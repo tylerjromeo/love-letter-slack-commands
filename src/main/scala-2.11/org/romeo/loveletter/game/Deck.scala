@@ -358,7 +358,9 @@ case object Count extends Card {
   val requiresTarget: Boolean = false
   val requiresGuess: Boolean = false
 
-  override def doAction(discarder: Player, targetName: Option[String] = None, guess: Option[Card] = None): State[Game, Either[String, Message]] = ???
+  override def doAction(discarder: Player, targetName: Option[String] = None, guess: Option[Card] = None): State[Game, Either[String, Message]] = {
+    State.state(Right("You discarded the Count"))
+  }
 }
 
 case object Constable extends Card {

@@ -19,7 +19,9 @@ case class Player(
 
 object Player {
   implicit def orderingByMaxCard[A <: Player]: Ordering[A] =
-    Ordering.by(a => a.hand.max.value)
+    Ordering.by(a => {
+      a.hand.max.value + a.discard.count(_ == Count) // add 1 to the value of the max card for each count in the discard pile
+    })
 }
 
 case class Game(

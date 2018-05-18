@@ -416,7 +416,7 @@ case object DowagerQueen extends Card {
 case object Bishop extends Card {
   val value = 9
   val name = "Bishop"
-  val description = "Guess a player's hand. Gain an Affection Token if correct. They may discard their hand and draw a new card."
+  val description = "Guess a player's hand. Gain an Affection Token if correct. They may discard their hand and draw a new card. When comparing at the end of the round, the bishop will always lose to the Princess"
   val requiresTarget: Boolean = false
   val requiresGuess: Boolean = false
 

@@ -18,6 +18,9 @@ case class Player(
 }
 
 object Player {
+  // This ordering is used when comparing cards at the end of a game.
+  // Because of cards like Count and Bishop, this should not be used when comparing cards in the middle of the game
+  // with Baron or Dowager Queen. Instead just use the value of the card for those cases
   implicit def orderingByMaxCard[A <: Player]: Ordering[A] =
     Ordering.by(a => {
       a.hand.max.value + a.discard.count(_ == Count) // add 1 to the value of the max card for each count in the discard pile

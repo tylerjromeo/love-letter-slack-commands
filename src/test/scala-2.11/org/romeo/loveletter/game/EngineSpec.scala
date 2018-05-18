@@ -666,6 +666,32 @@ class EngineSpec extends FlatSpec with Matchers {
     List(playerVal8, playerVal9, playerVal5, playerVal6, playerVal2).sorted should be(List(playerVal2, playerVal5, playerVal6, playerVal8, playerVal9))
   }
 
+  it should "rank the bishop below the princess, but above other cards" in {
+    val princess = Player(name = "Princess", hand = Seq(Princess), discard = List())
+    val bishop = Player(name = "Bishop", hand = Seq(Bishop), discard = List())
+    val countess = Player(name = "Countess", hand = Seq(Countess), discard = List())
+
+    bishop should be < princess
+    Deck.cards.toSet.filterNot(_ == Princess).foreach(card => {
+      bishop should be > Player(name = "", hand = Seq(card))
+    })
+  }
+
+  it should "always rank bishop below princess, even if the bishop is higher than other cards" in {
+    //bishop + 1, countess + 2, princess have a rock paper scissor relationship.
+    // In this case Countess should win, but the sorting scheme we're using won't work
+    val princess = Player(name = "Princess", hand = Seq(Princess), discard = List())
+    val bishop = Player(name = "Bishop", hand = Seq(Bishop), discard = List(Count))
+    val countess = Player(name = "Countess", hand = Seq(Countess), discard = List(Count, Count))
+
+    bishop should be < princess
+    bishop should be > countess
+    countess should be > princess
+    Seq(princess, bishop, countess).permutations.foreach{ l =>
+      l.max should be(countess)
+    }
+  }
+
   behavior of "The discard pile"
 
   it should "be empty at the start of the game" in {
@@ -2428,6 +2454,32 @@ class EngineSpec extends FlatSpec with Matchers {
   }
 
   it should "TODO: IMPLEMENT WITH BISHOP LOGIC behave correctly when interacting with princess and bishop" in {
+    pending
+  }
+
+  behavior of "the Bishop Card"
+
+  it should "lose to the princess at the end of a game" in {
+    pending
+  }
+
+  it should "defeat the princess when compared by baron" in {
+    pending
+  }
+
+  it should "lose to the princess when compared by Dowager Queen" in {
+    pending
+  }
+
+  it should "cause the player to gain an affection token if they guess another player's card correctly" in {
+    pending
+  }
+
+  it should "not gain any points if they guess another player's card incorrectly" in {
+    pending
+  }
+
+  it should "allow the player targeted by bishop to draw a new card" in {
     pending
   }
 }
